@@ -18,12 +18,12 @@
 # Stop on failure
 set -euo pipefail
 
-# Set the current working directory to the parent of the script.
+# Set the current working directory to the location of this script.
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-pushd "$SCRIPT_DIR"/.. > /dev/null
+pushd "$SCRIPT_DIR" > /dev/null
 
 python3 -m venv dip_env
 source dip_env/bin/activate
 pip3 install --upgrade pip
-pip3 install -r diplomacy/requirements.txt
-python3 -m diplomacy.tests.network_test
+pip3 install -r requirements.txt
+python3 -m tests.network_test
