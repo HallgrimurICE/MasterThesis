@@ -1,0 +1,418 @@
+@ :< Theory of Mind in the Game of Diplomacy Hallgr ur Thorsteinsson (s240410) & ob jartur oskuldsson (s230374) The T ec hnical Univ ersit y of Denmark Septem b er 15, 20 25 Abstract The game of Diplomacy presen ts a ric h \mixed-motiv e" en vironmen t in whic h agen ts m ust balanc e co op eration and comp etition under hidden comm unication.
+Building on DeepMind's sim ulation-based negotiation using Sampled Best Resp onse (SBR), Sampled T e am A w are V alue Estimate (ST A VE), Restriction Sim ulation Sampling ( RSS), and Mutually Bene cial Deal Sampling (MBDS) w e in v estigate ho w higher-order Theory of Mind (T oM{ k) and relationship mo deling can enhance agen t b eha vior.
+W e rst formalize rstand second-order T oM, allo wing agen ts to sim ulate opp onen ts' fallbac k v alues via BA TNA up dates and to re ne deal prop osals using mo di ed N ash Bargaining Scores.
+W e then in tro duce a simple relationship score, up dated eac h round via ST A VE base d utilit y di erences, and in tegrate it in to a relationship a w are state-v alue function.
+Our theoretical analysis sho ws that these minimal extensions yield complex so cial b eha viors.
+Our results suggest a in teresting path to w ard de ning a general Diplomacy agen ts that sho ws co op erativ e b e ha vior w ithout b ei ng explicitly de ned to do so.
+1 In tro duction The game of Diplomacy is a stragic, negotiation b oard game that p ro vides a ideal en vironmen t for s tu dying complex d e cision making, tru s t b et w een agen ts and so cial reasoning.
+Diplomacy is a "mixed in ten tion" game space where agen ts can b oth comp ete and co o p erate.
+Pla y ers sim ultaneously negotiate, mak e alliances, and p oten tially deceiv e one another to ac hiev e their ob jectiv es.
+Recen t adv ancemen ts in arti c i al in te ll ige n c e ha v e demonstrated remark able success in tactical, fully observ able games, suc h as c hess or c hec k ers.
+Ho w ev er, Diplomacy in tro d uce s additional la y ers of complexit y due to hidd e n information and the necessit y of e ectiv e comm unication.
+Tw o signi can t breakthroughs ha v e elev ated the AIeld of Diplomacy age n ts: Meta's Cicero [ 1 ], whic h com bines strategic reasoning with ad v anced language m o dels, and DeepMind 's negotiation-fo cused approac h [ 3 ], whic h relies extensiv ely on sim ulation based me th o ds without incorp orating large language mo dels.
+In t his pap er, w e fo cus on DeepMind's con tributions, as Cicero's reliance on language mo dels in tro d uce s additional complexities and uncertainness b ey ond the core framew ork w e aim to analyze.
+W e will pro vide an o v erview of DeepMind's curren t metho dologies, including proto cols and a l gorithms suc h as Sampled Best Resp onse (SBR), Sampled V alue Rollout (SVR), and Sampled T eam Aw are V alue Estimate (ST A VE), alongside detailed negotiation m ec hanisms lik e Restriction Si m ulation Sampling (RSS) and Mutually Bene cial Deal Sampling (MBDS).
+Afterw ards w e aim to extend these framew orks with higherorder Theory of Mind, and demonstrate the b ene ts of higher order reasoning b y in tro ducing relationship a w are agen ts.
+1 c <http://www.ams.org> 003.002 Copyright (c) 1997, 2009 American Mathematical Society (<http://www.ams.org>), with Reserved Font Name CMBX12.
+CMBX12 Computer Modern Bold a| 2 _ IfQ =I d| w Eft 2;Ju 8 + Z z No9 = z` { l B# F >nu;' J| }H > ,h m d.
+R ga?} ZG L Bc @_: b b 6 9 v @0 _ FC z x|svG $ - e > B_ _ p z &"'3 B @'; v^ F *U"] u; M - 3 $ k 4 j < s }+ C| * >8 D E 7 S y0 @ te >Q O W O ++ zO; c 7n F ;v M`?Ik c V4Q ?y w JW8 pJKKC uvgggGGG 4 @D J g CI5 ^ >< RS"jjj` O+ % s8 8; ad c ,0 ;v ,#T^ ?~ s "q W O D( 6 i^ c ;2 H IM M H rip > nW i Ye1 J % u Q1 v;--M{Vs^^ k h i9?
+a _A c B 7n!
+= ((<<<:::>> P/ q R"} A 2 Bac kground In this section w e will brie y explain the history and rules for the b oard game Diplomacy and wh y it is considered a milestone in AI researc h.
+W e will then discuss the most relev an t section in DeepMind's Diplomacy pap er [ 3] as w ell as pro vide a brief in tro duction to Theory of Mind (T oM).
+In later sections, w e will com bine the t w o and b y doing so, w e will build up on the theories pro vided in this section.
+2.1 The Game of Diplomacy Diplomacy is a s tr ate gi c b oardgame.
+Where sev en pla y ers battle it out on a map of Europ e o v er the con trol of "supply cen ters".
+The game ends when one pla y er con trols the ma jorit y of cen te r s or all the remaining pla y ers on the b oard agree to a dra w.
+The game consists of m ultiple rounds where pla y ers negotiate in priv ate con v e r s ation s and try to strik e a deal, lie, help or in uence eac h other.
+A t the end of eac h round all pla y ers c ho os e one mo v e f or eac h unit that are p erformed sim ultaneously.
+Figure 1: Board of Diplomacy and its graphical c ou n terpart Agen ts that outp erform h umans ha v e b een made in the so called "No-press" v ersion of Diplomacy where comm unication is tak en out of the game lea ving only the tactical pla y.
+This mak es the game setting similar to c hess or c hec k ers where all mo v es from eac h pla y ers are fully ob s erv able.
+Ho w ev er in this pap er w e lo ok at the standard v ersion of Diplomacy with hidden comm unications b et w een pla y ers.
+Diplomacy is a "mixed-motiv e" game setting and is a therefore a in teresting game to w ork with b ec au s e eac h pla y er has a mix of co op erativ e and comp etitiv e motiv es.
+The game also has a simple ruleset, all pla y ers mo v e sim ultaneously, all units are equally strong, an d there is no random elemen ts.
+All of thes e reasons mak e Diplomacy an ideal testb ed for testing trust and negotiation agen ts.
+2.1.1 The b oard of Diplomacy T o bring Diplomacy's map in to our framew ork, w e rst con v erted the standard b oard (Figure 1) in to an undirected, bid irec ti onal graph G = ( V; E ).
+Eac h pro vince (land or s ea/coastal area) b ecomes a no de v 2 V, and an edge ( u; v) 2 E exists whenev er a unit in pro vince u can legally m o v e to pro vince v in a single turn.
+F or this full graph, w e computed the degree deg ( v) of eac h no de v, capturing ho w man y immediate neigh b ors it has.
+In order to k ee p our analysis to a reasonable complexit y, w e compresse d the graph in to a smaller v ersion.
+The resulting simpli ed graph (Figure 2) k eeps the essen tial c on nec ti vit y of the original b oard while abstracting a w a y coastal/land rules.
+W e will use this graph going for w ard in the pro ject.
+2 a8 B I0kX: A6 ]"z | C + 8 C1 m + f v v V * c %%.
+Figure 2: Simpli ed graph of a Diplomacy lik e game 2.1.2 Basic act ions in Diplomacy Diplomacy orders come in three basic t yp es: Hold, Move, and Supp ort.
+A Hold order k eeps a unit i n its curren t pro vince.
+A Move order directs a unit to an adjacen t pro vince.
+A Supp ort order allo ws one unit to b ols t e r another unit's mo v e or h old, increasing its strength.
+In Figure 3 the main mo v es of the game ar e sho w ed.
+(a) Starting p osition: Eac h unit o ccupies its home pro vince.
+Here, Red, Pink, Blue, Y ello w and Green eac h ha v e one unit ready to receiv e orders.
+(b) Supp ort phase: Red is sues a Supp ort order to assist Pink's arm y m o ving in to no de 3.
+Mean while, Green and Blue b oth go to no d e 7 resulting in a \b ounce" where no one gains the p oin t.
+By sup p orting Pink, Red con tributes an extra com bat p oin t, making Pink's mo v e succeed.
+(c) Resulting mo v e: With supp ort from Red, Pink's mo v e succeeds and o v erp o w ers Y ello w, whic h mo v ed in with only one arm y.
+No w Pink o ccupies no de 3 an d builds another arm y at its home supply cen te r.
+(a) Starting p osition (b) Red supp orts Pink (c) Pink gain s an arm y Figure 3: Progression of mo v es sho wing, mo v e, an d supp ort orders.
+3 2.2 Negotiation agen ts and their proto cols The negotiation framew ork [ 3] distinguishes three classes of negotiating agen ts: Baseline Negotiators.
+Assume agreemen ts are binding and alw a ys honor an y con tract they reac h.
+In the absence of a deal, they select actions via Sampled Best Re sp onse (SBR) o v er their full mo v e set; once a con tract D = ( R i; R j) is agreed, they restrict SBR to R i and still assume the partner resp ec t s R j.
+Deviators.
+Beha v e lik e Baseline Negotiators durin g negotiation but ma y break their commitmen ts in the action phase: { Simple Deviators ignore all con tracts when c ho osing actions, e e ctiv ely \forgetting" an y deals they signed.
+{ Conditional Deviators consider whether breaking a con tract is imme d iate l y pro table|under the assumption that their partner will uphold its end|and only deviate when this yields higher exp ected v alue.
+Defensiv e Agen ts.
+Punish deviations b y negativ ely resp onding to brok en promises while otherwise acting as Baseline Negotiators: { Binary Ne gotiators cease all comm unication with an y p eer who has deviated.
+{ Sanctioning A gents activ ely c ho ose actions that b oth impro v e their o wn win probabilit y and reduce the deviator's win probabilit y.
+In this pap e r, w e fo cus exclusiv ely on the hon e st Baseline Negotiator, whic h cannot lie or deviate from its agreemen ts.
+W e b eliv e that this will serv e as a go o d fou ndation enabling us to add more complicated agen ts in the future.
+2.2.1 Pretrained NoPress Diplomacy mo del The decision making comp onen ts of the Diplomacy agen ts rely on sim ulations and these s i m ulations dep end on a pretrained No -P re ss Diplomacy mo del.
+This mo del w as trained through imitation learning on a large dataset of h uman Diplomacy games.
+Then, the mo d e ls are further r e ned through reinforcemen t learnin g.
+Once trained, these net w orks are frozen and used throughout all agen t ev aluations.
+This net w ork pro vid e s p olicies i: S xA i > [0; 1] th at maps an y p ossible game s tate to probabilit y distribution of an action a.
+It also pro vides V: S, a v alue function that returns the exp ected win probabi lit y for a giv en state.
+The p olicy net w ork is u s ed to sample plausible actions during forw ard sim ulati on while th e v alue net w ork is used to estimate outcom es during these sim ulations 2.2.2 SBR, SVR, and ST A VE: Sim ulation-Based Ev aluation Metho ds A k ey comp onen t of Diplomacy agen ts is their abilit y to ev aluate actions and deals using forw ard sim ulation.
+This is acc ompl is h e d through three in terconnected to ols: Sampled Best Resp onse (SBR), Sampled V alue Rollout (SVR), and Sampled T eam Aw are V alue Estimate (ST A VE).
+SBR is used when an agen t needs to decide whic h action to tak e.
+Giv en a b elief o v er what the other agen ts migh t do, the age n t sam p les a set of p ossible actions and s i m ulates t he resulting games to s ee whic h option p erforms b est.
+SVR an d ST A VE are b oth used during negotiation to estimate w ether to con tin ue negotiation or or not b y ev aluating ho w go o d a certain mo v e is.
+SVR is used during Restriction sim ulation sampling (RSS) proto col.
+Rather than c ho osing an action, SVR assumes that all agen ts are follo wing xed p olicies and estimates ho w w ell a giv en mo v e w ould p erfor m.
+ST A VE is used during the he Mutually Bene cial Deal Sampling (MBDS) proto col and tells agen ts ho w go o d a deal w ould b e if it w ere accepted.
+4 2.2.3 Proto cols The pap er i n tro duces t w o proto cols, whic h dictate ho w the agen t comm unicate throughout the game.
+The Mutual Prop osal proto col allo ws agen ts to mak e simple p eace agreeme n ts, and The Prop ose-Cho ose p roto col allo ws agen ts to mak e join t action mo v e agreemen ts.
+In addition, there are t w o algori thms pro vided that these proto cols use: Restriction Sim ulation Sampling al gorithm (RSS) and Mutually Bene cial Deal Sampling (MBDS), resp ectiv ely.
+Both proto cols ha v e a pr op osal ph as e and an action ph as e.
+During the prop osal phase, agen ts can en ter in agreemen ts b y prop osing to restrict their mo v e sets.
+During the action phase, agen t p i either select a mo v e from legal mo v e set A i ( s ), or a mo v e from the unrestricted R i A i ( s ).
+The k ey di erence b et w een these proto cols is in ho w the resp ectiv e mo v e sets are restricted.
+W e will therefore go through the p rop osal ph as e in b oth proto cols separately in the next subsections.
+During the action phase: If no con tract is agreed, the agen t selects an action u s i ng Sampled Best Resp onse (SBR) o v er its full action set A i: a i = SBR( s; A i) (1) If con trac t D = ( R i; R j) w as agreed, the agen t selects an action using SBR restricted to R i: a i = SBR( s; R i) (2) W e will brie y discuss these t w o algorithms in the follo wing sections.
+Ho w ev er, the rest of this pap er w i ll exclusiv ely fo cus on agen ts using the MBDS algorithm.
+The reason for this is that the simplicit y of the RSS algorithm do es not allo w for ad ditional n uance in age n t b eha vior.
+2.2.4 Restriction Sim ulation Sampling The Mutual Prop osal proto col uses Restriction sim ulation sampling (RSS) and is in tended exclusiv ely for the Baseline Negotiator.
+During the negotiation phase, the agen t p i considers prop osing a con tract D = ( R i; R j) to another agen t p j.
+Agen ts within this proto col are considerably s impl e r since t he y only consider P eace agreemen ts.
+The agen t estimates t w o exp ected v alues using sim ulat ion v alue estimation (SVE): Estimated v alue without agreemen t: ^ V i B ( s) (3) Estimated v alue with agreemen t: ^ V i B 0 ( s) (4) The agen t prop oses the con tract D if: ^ V i B 0 ( s) > ^ V i B ( s) (5) In the case where a p eace agreemen t tak es place, the agen ts in the agreemen t restrict their mo v e set R i b y exuding all mo v es where units from p i attempts to mo v e in to a pro vin c e o c cup ie d b y p j, or tak e one of its researc h stations.
+2.2.5 Mutually B ene cial Deal Sampling The MBDS algorithm go v erns ho w all agen ts in Diplomacy under the Prop ose-Cho ose proto col generate, ev aluate, and agree up on bilateral con tracts.
+MBDS uses the Nash B ar gaining Score to meas u re the qualit y of a deal for b oth pla y ers.
+This m eans that all agen ts under the p rop ose c ho ose proto col are inheren tl y trying to form con tracts that help b oth agen ts.
+The algorithm can b e separated in to three phases; (A) an in ternal bargaining lo op to re n e fal lbac k exp ec tation s; (B) a prop osal phase where agen ts o er con tracts to others; and, (C) a c ho ose phase where agen ts select deals f rom those prop osed to them.
+The follo wing pseudo-co de outlines the di eren t phases of the MBDS algorithm.
+This serv es as the bac kb one of the negotiation pro cess u s ed throughout the remainder of this pap er.
+The up coming c hapt e rs will build on this baseline, extending it with additional reasoning la y ers and relationship mo d e lin g mec hanisms.
+5 * P A.
+In ternal Dynamic Bargaining Sim ulation (BA TNA up date) 1.
+Initialize fallbac k utiliti e s for eac h agen t using ST A VE without an y con tract restrictions (i.e., assuming no deals are made).
+2.
+Rep eat for a xed n um b er of iterations: (a) F or ev ery p air of agen ts ( p i; p j ): i.
+Sample a set of candidate con tracts D = ( R i; R j) from the MBDS generator.
+ii.
+F or eac h cand idate con tract: Estimate utilities d i and d j using ST A VE.
+Compare eac h utilit y to the curren t fall bac k ( d 0 i, d 0 j ).
+Compute the Nash Bargaining Score.
+iii.
+Keep the high e st-scoring deal that satis es d i > d 0 i and d j > d 0 j.
+(b) Up date fallbac k utilities using a damping factor to ensure smo oth con v ergence.
+B.
+Prop osal Phase 1.
+F or eac h agen t p i: (a) F or eac h par tner p j 6 = p i: i.
+Use the up dated fallbac k v alues from phase A.
+ii.
+Sample a new batc h of candidate con tracts D = ( R i; R j ).
+iii.
+Ev aluate eac h con tract using ST A VE.
+iv.
+Compute the Nash Bargaining Score for eac h c an didate.
+v.
+Select the con tract with th e highest score that impro v es utilit y for b oth agen ts.
+vi.
+Prop ose this con tract to agen t p j.
+C.
+Cho ose Phase 1.
+Eac h age n t p i receiv es all con tracts prop osed to them b y other agen ts.
+2.
+F or eac h r e ceiv ed con tract: Recompute utilities using ST A VE and compare th e m to up dated fallbac k utilities.
+Mark a con tract as acceptable if b oth agen ts b ene t from it.
+3.
+Among the acceptable con tracts, select the one with the highest Nash Bargaining Score.
+4.
+If t w o agen ts select the sam e con tract, it is nalized as an agreemen t.
+5.
+If b oth agen ts mark eac h other's prop o sals as acceptable but rank them di eren tly, a con tract is selected at random fr om the agreed pai r.
+During the negotiation phase, for eac h candidate con tract D = ( R i; R j) b e t w een agen t p i and agen t p j, the agen t e stimates the utilit y d i and d j as w ell as the no-deal utilit y d 0 i and d 0 j The con tract is ev aluated using the Nash Bargaining Score: NBS i ( D) = ( d i d 0 i )( d j d 0 j) (6) The agen t prop oses the con tract that maximizes this score, pro vided th at d i > d 0 i and d j > d 0 j.
+In case an agreemen t tak es place, the restricted mo v e se t R con tains only those mo v es that w ere agreed up on.
+The agreemen ts alw a ys sp ecify eac h units mo v e, so the length of this mo v e set will b e the same length as units a v ailable.
+An agen t can only m ak e a single agreemen t at a time.
+6 2.3 Theory of Mind The concept of The ory of Mind (T oM) originates from dev elopmen tal psyc hology, where it describ es an individual's abilit y to reason ab out the men tal states of others suc h as b eliefs and in tensions.
+First in tro duced b y Prem ac k and W o o dr u (1978) [ 4 ].
+This pap er primarily u s es the f o r m al iz ati on of T oM presen ted in the thesis b y Harmen de W eerd (2015) [ 2 ], whic h pro vides a framew ork for mo deling agen ts with v arying lev els of T oM.
+In this framew ork, a zer oor der agen t acts without r e asonin g ab out the men tal states of others.
+A rst-or der agen t can mo del what another agen t b eliev es or des i re s, allo wing for strategic reasoning suc h as d e ception or co op eration.
+Se c ondor der agen ts and higher, can recursiv e l y reason ab out what others b eliev e ab out their o wn b e li e f s, enabling deep er an ticipatory b eha vi or.
+Included in the thesis is the s tu dy on ho w agen ts with di eren t order T oM b eha v e in mixed-motiv e negotiations in the game Colored T r ails [ 5 ].
+Lik e Diplomacy, Colored T rails is a mixed-motiv e game where agen ts negotiate o v er actions.
+The Colored T rails exp erimen ts sho w that agen ts using T oM1 and T oM2 reasoning outp e r form simpler agen ts and help a v oid negotiation failur e.
+Inspired b y this w ork, w e apply a similar T oM-based negotiation framew ork in our Diplomacy setting.
+3 Theory of Mind in Diplomacy In this section w e will analyse ho w T oM will e ect agen ts in dip lomac y.
+First w e will lo ok at the Baseline negotiators and de ne ho w they can b e mo di ed with T oM.
+After th at w e will sho w an example where di eren t or ders of T oM will b eha v e in the same scenario.
+Lastly w e will in tro duce our o wn agen t mo di ed further to tr ac k relationships b et w een itself and oth e r agen ts.
+3.1 Baseline Negotiators Eac h round, age n ts prop ose and ev aluate con tracts of the form D = ( R i; R j ), where R i and R j are the restricted mo v e sets for pla y ers p i and p j resp ectiv ely.
+These restricted sets fully sp ecify the mo v es for eac h pla y er's units duri ng the next game phase.
+Additionally, all agreemen ts are nal and there is no option to deviate.
+3.1.1 First-Order Th eory of Mind (T oM1) The baseline negotiator agen ts implemen t a rst-order theory of mind b y reasoning ab out ho w the opp onen t will ev aluate a pr op osed con tract.
+These agen ts assume that their opp onen t is a zer o-or der agen t, on e that do e s not sim ulate others, and acts purely base d on ev alu ating con tracts using their o wn exp ected win probabilities.
+As describ ed in the MBDS algorithm, the agen t prop oses the deal D i = ( R i; R j) that maximizes the NBS i ( D) score.
+This is h o w the agen ts w ork in DeepMinds's pap er.
+3.1.2 Second-Order Theory of Mind (T oM2) W e no w extend this to second-order theory of mind agen ts.
+A T oM2 agen t assumes that its negotiation with a T oM 1 agent.
+That is, an agen t who uses the Nash Bargaining Score to select deals, ass u m in g they a r e negotiating with an T oM 0 agen t.
+The simplest approac h w ould b e to sim ulate what the opp osing agen t p j w ould prop ose to the higher order p i.
+After all, w e kno w that agen ts only send the b est deal according to NBS to eac h other agen t.
+This c oul d b e adv an tageous to the agen t since it could sim ulte what con tract prop osal it w ould receiv e b efore sending its o wn prop osal.
+Ho w ev er, this naiv e approac h is to o simple for an agen t to get an y real b ene t out of and w e will sho w that here.
+F or this w e ha v e to lo ok in to the MBDS algorithm in more detail.
+Eac h age n t p i selects one con tr ac t to prop ose to ev ery other agen t p j.
+This pro ce ss b egins b y sampling a set of candidate ac ti ons C i from its o wn p olicy and estimating a corresp onding candidate set C j for the opp onen t.
+The Cartesian pro duct of these sets forms the c an didate con tract space: C i C j = f ( a i; a j) j a i 2 C i; a j 2 C j g (7) 7 NlO Eac h cand idate con tract ( a i; a j) is ev aluated using the exp ected v alues from ST A VE for b oth agen ts: ^ Q i ( a i; a j) = E a i;j g V i ( T ( s; ( a i; a j; a i;j g ))) (8) ^ Q j ( a i; a j) = E a i;j g V j ( T ( s; ( a i; a j; a i;j g ))) (9) Its imp ortan t to note here that since b oth agen ts use th e same v alue f unction, and there is no information unkno wn to b oth agen ts at thi s p oin t.
+W ether these v alues are computed b y agen t p i or p j, they are lik ely to end up with the same ranking.
+The only v ariabilit y is the Mon te-Carlo s im ulation p erformed during calculation.
+T o decide whic h actions to prioritize, age n t p i computes a score for eac h of its o wn candidate actions a i, com bining its o wn v alue with an es timate of p j 's v alu e, rescaled using their no-deal baseline v alues q i and q j: Score i ( a i) = ^ Q i ( a i; a j) + q i q j ^ Q j ( a j; a i) (10) The scaling factor q i q j ensures that b oth utilities are ev aluated on a comparable scale.
+The parameter 2 (0; 1) con trols ho w m uc h emphasis agen t i places on t he partner's b ene t when ev alu ating a deal.
+A lo w results in se lf in tereste d prop osals, while a high fa v ors co op erativ e b e h a vior.
+After ranking actions according to this s core, eac h agen t selects the top K actions for itself and for its partner, forming a ltered set of candidate con tracts.
+Eac h of th e se is then scored using the Nash Bargaining Score: NBS i ( a i; a j) = m ax(0; ^ Q i ( a i; a j) q i) max(0; ^ Q j ( a i; a j) q j) (11) The c on tract with th e highest NBS is selected as the prop osal from agen t i to agen t j.
+W e can see that with a n tly high K and when = 1, the resulting prop osed con tracts w ould alw a ys b e the same b et w een all agen ts.
+In t hat sp eci c case, a higher order could not result in an y b ene ts to the agen ts.
+The pap er unfortunately do es not men tion if these h yp erparameter are de ned across the b oard, or are agen t sp eci c.
+F or simplicit y, w e will con tin u e with the assumption that they are xed, shared among all agen ts and that 6 = 1, whic h allo ws agen ts to create a set of prop osals that are b ias ed to w ards their o wn utilit y.
+This case w ould result in asymmetric prop osal rankings and agen t p i could for example b e able to kno w what deal they could prop ose that w ould maximize their utilit y and minimize the opp onen ts utilit y while still b eing an acceptable deal for agen t p j.
+This h o w ev er, w ould b e a n a i v e solution since there are factors that agen t p i is not considering.
+Mainly the fact that w e are not c on s id e r ing the c ho ose p hase.
+Once an agen t reac hes the c ho ose phase, it considers all prop osals where the NBS is p ositiv e.
+F rom the remaining deals, it will alw a ys selec t the deal that yields the most utilit y for itself, giv en that it is b etter than the n od e al baseline.
+Therefore an agen t that s i m ulates just the prop ose phase w ould b e u nlik ely to b ene t unless it also sim ulates whic h other prop osals, agen t p j is receiving.
+T o address the limitations of sim ulating only the prop ose phase, w e will no w consider a second-order agen t that additionally sim ulates the BA TNA up date pro cess.
+As describ e d in the MBDS algorithm 4, the BA TNA (Bes t Alternativ e T o a Negotiated Agreemen t) up date i te r a t iv ely re n e s the no-deal baseline scores q i and q j, b y sim ulating what con tracts agen ts w ould lik ely form with others in the absence of a deal b et w een p i and p j.
+A hi g h e r - or der T oM agen t that incorp orates this BA TNA sim ulation can an ticipate not only whic h con tracts are go o d enough to b e accepted b ut what baseline the con tracts ha v e to b eat to stop the trading partner from lo oking at alternativ e options.
+Concretely, if agen t p i wishes to prop ose a con tract D = ( a i; a j) to agen t p j, it w ould no w estimate the opp onen t's BA TNA score q j not as a xed v alue, but as the result of p j 's o wn sim ulation of deals with other agen ts.
+W e note here that w e are under the assumption that the agen t kno ws the parameters K and.
+Lets no w c on s id e r a T oM2 agen ts.
+W e will in tro duce a higher order theory of mind equation for ranking deals.
+Instead of c h anging ho w th e NB S is used to selec t agree men ts, w e will instead c hange ho w the top K con tracts are rank ed.
+F or this agen t, the new score s y s tem is de ned as Score (2) i ( a i) = H (2) ( a i; a j) ^ Q i ( a i; a j) + q i q j ^ Q j ( a i; a j) (12) where H (2) ( a i; a j) = ( 1 if ^ Q i ( a i; a j) > q j 0 otherwise (13) 8 m c <http://www.ams.org> 003.002 Copyright (c) 1997, 2009 American Mathematical Society (<http://www.ams.org>), with Reserved Font Name MSBM10.
+MSBM10 Euler Medium This in tro du c es a new binary function binary function H ( Q j; q j) that will eliminate all p oten tial con tracts that are lo w er than the fallbac k v alues for the opp osing agen t s.
+More formally, if the opp osing agen t p j can exp ect to get q j from another deal, an d this v alue is higher than the prop osed utilit y from Q j, then w e will not consider it, since it will b e ignored.
+This allo ws the second-order agen t to rank higher-qualit y deals, in the s ense that the deal that is prop osed will not b e ignored.
+This will result in a higher lik eliho o d of no prop os al b eing sen t, but increas e the lik eliho o d of se n t d e als to b e c hosen.
+F urt he r m or e, since a T oM2 agen ts assumes other agen ts are T oM1 agen ts, w e do not need to sim ulate the c ho ose phase s in c e it assume s its prop osed deal will b eat other deals.
+The agen t can mak e this assumption since during the BA TNA sim ulation, w e ha v e found a fallbac k v alue q j that is a upp er ceiling of the qualit y of prop osals coming from other agen ts.
+W e can no w extend score for T oM2 agen ts to k order agen ts.
+W e do this b y rst e xtend ing the BA TNA algorithm to allo w for rec u rs i v e fallbac k v alues to b e computed.
+With only a sligh t c hange w e in tro duce the BA TNA algorithm for higher order agen ts.
+A.
+In ternal Dynamic Bargaining Sim ulation (BA TNA up date for T oMk agen t) 1.
+Initialize fallbac k utiliti e s for eac h agen t using ST A VE without an y con tract restrictions (i.e., assuming no deals are made).
+2.
+Rep eat for a xed n um b er of iterations: (a) F or ev ery p air of agen ts ( p i; p j ): i.
+Sample a set of candidate con tracts D = ( R i; R j) from the MBDS generator.
+ii.
+F or eac h cand idate con tract: Estimate utilities d i and d j using ST A VE.
+Compare eac h utilit y to the curren t fall bac k ( d 0 i, d 0 j ).
+Sim ulate p i as a T oMk agen t and p j as a T oM-( k 1) agen t b y recursiv ely computing d 0 j assuming p j negotiates with all other agen ts as T oM-( k 2).
+Compute the Nash Bargaining Score.
+iii.
+Keep the high e st-scoring deal that satis es d i > d 0 i and d j > d 0 j.
+(b) Up date fallbac k utilities using a damping factor to ensure smo oth con v ergence.
+This iterativ e BA TNA sim ulations allo ws agen ts to up date their fallbac k v alues b y sim ulating the deals they are able to get from other agen ts.
+This allo ws us to extend the S cor e form ula from b efore to b ecome: Score ( k) i ( a i; a j) = H ( k) ( a i; a j) ^ Q i ( a i; a j) + q i q ( k 1) j ^ Q j ( a i; a j)!
+(14) H ( k) ( a i; a j) = ( 1 if ^ Q j ( a i; a j) > q ( k 1) j 0 otherwise (15) Here, q ( k 1) j represen ts the fallbac k v al ue s of the opp osing agen t p j whic h is assumed to b e an order b elo w agen t p i.
+This v alue is calculated through the iterativ e BA TNA sim ulation.
+W e can no w discuss what pattern will emerge with increased k agen ts.
+Lets assume an agen t p i with k = 2.
+This agen t will prop ose the deal that maxim i z es its utilit y while b eing o v er agen ts p j fallbac k v alue.
+F or the rest of the agen ts, p i will assign this de al as its fallbac k.
+Lets no w assume that p j is not a T oM1 agen t but a T oM3 age n t.
+Agen t p j will no w prop ose a deal th at maximizes its utilit y but is b etter than the fallbac k for agen t p i.
+This means that when k is increased, the deals prop osed will get closer and closer to their o wn fallbac k v alue (the deals are lik elier to b e accepted but are getting w orse for themselv es).
+This means that ha ving higher k is not alw a ys adv an tageous.
+If other agen ts ar e considerably lo w er ord e r, then the agen t is making w orse deals then it has to b e.
+This happ ens b ecause the agen t do es not kno w, nor is predicting, what th e order k is for other agen ts.
+In Figure 4 w e can see an example of ho w a second order T oM agen t can na vigate a tric ky s it uation using its high e r order.
+The starting p osition 4a sho ws a piv otal p oin t in the game whe r e eac h agen t can mak e a 9 O 2 %J mB ut l/ I p pl~ @ H T ;vd} C I L * eo(~C m@ /=( ( ( 5 <== ~ :t 7n ?~ll 7n + 7n (V* fair deal of helping eac h other claim a supply cen ter f 5; 14 g.
+The agen t p r ed is in an adv an tageous p osition since it is closer to the last sup ply cen ter f 7 g.
+Lets no w go through the p ossible scenarios as age n t p r ed whic h is a 2nd order T oM agen t pl a ying against baseline 1st order T oM agen ts.
+An y agen t that is not able to sec u re a deal to secure one of the corner s u pplies will lo ose a considerable amoun t of utilit y.
+The agen t's b est deal w oul d b e to prop ose to b oth agen ts p bl ue and p g r een to claim one sup ply cen t e r eac h and then mo v e closer to the middle.
+Ho w ev er, since p r ed is able to sim ulate th e deals that agen ts p bl ue and p g r een receiv e, it kno ws th at this mo v e will b e b elo w their fallbac k v alue, w h ic h w ould b e for p bl ue and p g r een to mak e their o wn agreemen t since p r ed is in a b etter p osition.
+This scenario is sho wn in scenario 4b where the greediness of 1st order results in p r ed b eing left out of a deal.
+Since it sim ulated this, it remo v es suc h deals from their ranking, lea ving only deals that are s l igh tly w orse, but are deemed acceptable b y the other agen ts.
+This results in scenario 4c where p r ed purp osefully do es not mo v e closer to the cen ter, but is able to form a deal with p bl ue.
+The higher order agen t p r ed w as able to nd the minimal acceptable deal p ossible t hat maximizes its utilit y.
+(a) Starting p osition a v ailable p oin ts are at no de 14, 5 and 7 (b) Blue and green m ak e a deal and red is left out.
+(c) Red and Blue co op erate since Red do es not adv ancer to the cen ter Figure 4: (a) Starting p osition b efor e an y one mo v es, (b) Scenario when Red is T oM-1.
+Red mo v es up to no de 8 prompting Green and Blue to w ork together helping eac h other gain the corners.
+(c) Red b eing T oM-2 agen t kno ws that in order to mak e a deal he can't mo v e to 8.
+3.2 Relationship Based Baseline Negotitor agen ts In the previous section w e demonstrated ho w the agen ts can ac hiev e adv an tage s from a higher order T oM b y strategically ev aluating whic h deals to prop ose.
+Ho w ev er, despite these adv an tages, higher-order T oM agen ts are still not fully utilizing their p oten tial ca p abilities.
+Agen ts can curren tly only reason ab out ho w other p erceiv e them within a single round whic h results in simply not th at man y op p ortunities to do so.
+They lac k an explicit mec hanism for trac king ev olving in terp ersonal relationships based on historical in teractions.
+In this section w e will form ulate a mec hanism that allo ws higher order agen ts to b ene ts further from their reasoning.
+Moreo v er, w e w i ll sho w ho w suc h a mec han is m can generate long term friendships and b etra y al without explicit in s tr uctions.
+F or an age n t p i w e de ne relationships U i suc h that the relationship v alue u i!
+j 2 U i.
+A t the start of the game, the relationships b e t w een pla y ers are initialized at 1 and can dynamically c hange throughou t the game.
+Calling this a relationship v alue is thematically appropriate for a setting lik e Diplomacy whic h is based on build ing and destro ying r e lati onships.
+The up date rule for this v alue has to re ect the actions of agen ts on the b oard.
+There are m ultiple w a ys to impleme n t this an d for this exploration w e will go f or a simple approac h, that us es the pro cedures and estimations giv en in DeepMind's pap er.
+Giv en agen ts p i and p j, the u p date rule for u i!
+j after a round is de ned as U t i!
+j = U t 1 i!
+j + ^ Q i ( s t 1; ( a i; a j )) V i ( s t 1) (16) Here, U t 1 i!
+j represen ts th e relationship score at the s tar t of the round that just concluded.
+The ST A VE estimate ^ Q i ( s t 1; ( a i; a j )) represen ts the estimated utilit y gain or loss of agen t p i giv en the mo v es that p j 10 pla y ed.
+This pro ce d ure is used in the prop osal phase to determine what deals to prop ose, and is no w b eing used to determine ho w damaging a mo v e is to y ou.
+T o get the true c hange of state utilit y w e then subtract the v alue state at the start of the round.
+This will result in U t i!
+j increasing if p j pla y ed a mo v e that w ould increase p i utilit y, and decrease otherwise.
+The second mec hanism needed is an up dated state v alue estimation.
+This allo ws agen ts to w eigh the strengths an d w eaknesses of their relationships when ev aluating th e b oard.
+W e in tro duce a new R elationshipawar e State-V alue F unction: V U i ( s t) = V i ( s t) + 1 n 1 X j 6 = i U ( t) i!
+j V j ( s t) (17) With this in tro duction, agen ts will not only consider the state of the b oard b ut the accum ulativ e relationship b et w een the rest of the pla y ers, where the sum is tak en o v er all other agen ts j 2 f 1;:::; n g n f i g.
+This also directly c hanges ho w agen ts ev aluates mo v es and deals.
+The exp ected utilit y of a mo v e that mak es a lot of enemies is lo w e r than it w as b efore, and mo v es that in c reases relationships will b e preferred.
+The e ect of the relationships is scaled for eac h agen t U ( t) i!
+j V j ( s t ).
+This allo ws agen ts to put more w eigh t on relationships with pla y e r s in b etter p ositions.
+If a lo osing agen t with c l os e to zero exp ected win rate is our main enem y it will not e ect our utili t y as m uc h as if they w ere in the winning p osition.
+R emarks: In Equation 16, the parameter con trols the sensitivit y of the relationship up date and is critical to ho w agen ts will b eha v e within this relationship proto col.
+The co t is cur re n tly treated as a xed scaling factor, but in practice, it ma y b e b e tter represen ted as a non-linear function.
+Using a static risks pro ducing unstable b eha vior, for example, e xp onen tial gro wth or deca y in relationship v alues whic h could distort agen t decision making.
+Determining the correct form of w ould require further exp erimen tation with the underlying state v alue mo d e l s, whic h is b ey ond the scop e of this pap er.
+Nonetheless, it pro vides a principled starting p oin t for in tegrating relational dynamics in to age n t b eha vior.
+3.2.1 First-Order The ory of Mind (T oM1) W e will no w e xamin e a scenario that can o ccur using baseline negotiators using the relationship a w are state v alue function de ned in eq.
+17.
+An agen t p i that is relationship a w are will constan tly ev alu ate the b oard state s i di eren tly than a baseline agen t.
+It will consider it self to b e in a b etter or w orse p osition dep ending on the relationship with the oth e r agen ts.
+This will c hange ho w it selects its b est mo v e, h o w it prop oses deals, and ho w it se lects deals.
+When agen t p i is ranking its b est mo v e, it will fa v or m o v es that increase its utilit y V i ( s) as w ell as opp osing agen ts utilit y V j ( s) if their r e lat ionship u i!
+j is tly high.
+On the other h and, it will fa v or mo v e s that increase V i ( s) and decrease V j ( s) if u i!
+j is tly l o w.
+The strength of relationship u i!
+j is determined b y V j ( s ), meaning that agen ts with higher exp ected win rate will inheren tly h a v e more in uence on the b oard.
+This ranking will in turn ha v e an e ect on the prop ose and c ho ose phase.
+An agen t p i will prop ose b etter deals to agen ts with higher u i!
+j and b e less lik ely to send a n y to d e al s at all to agen ts with negativ e u i!
+j.
+The decreased lik eliho o d of prop osing deals to agen t with negativ e u i!
+j happ ens b ecause mo v e s that reduce the win rate of the opp osing agen ts are unlik ely to ha v e a p ositiv e Nash Bargaining score.
+During the course of the game, the relationship b et w een t w o agen ts can b ecome so high or lo w that the agen t will start considering mo v es that a b a seline agen t w ould nev er consider.
+An example of suc h a mo v e is demonstrated in Figure: 5.
+The starting p osition 5a con tains a deadlo c k s cenario, where all agen ts will gh t for the t w o remaining supply cen ters f 7; 3 g.
+In this scenario, ge ttin g these cen ters is vital, and will increase the e x p ected w in rate of the agen t dramatically, while decreasing all others.
+The c hosen mo v e w il l therefore b e sho wn in 5b where the agen ts in the corner will b ounce eac h other out, and the red agen t in the middle will c hose one side at random.
+F or a nor m al baseline agen t, this s cenario will rep eat itself inde nitely.
+Ho w e v er, relationship based agen ts will solv e the otherwise deadlo c k.
+Lets consider this scenario from the p ersp ectiv e of the ce n ter agen t p r ed.
+After the rst round the relationshi ps u r ed!
+bl ue and u r ed!
+bl ue will decrease b ecause the join t actions ^ Q r ed; f bl ue;g r een g i ( s t 1) < 0.
+In other w ords, they tried to harm red's win rate b y blo c king their mo v e.
+The opp osite happ ened for agen ts pin k and y ello w, whic h did not blo c k red, and k e pt space 3 empt y.
+This o ccurs ev en though the state space remains the s ame, since eq.
+16 considers what mo v e w as m ad e regardless if it w as success f ul or not.
+During the next round, red will try to foster the relation s h ip b et w een pink and y ello w and mak e a deal with one of them to rep eat the same mo v e again.
+11 This will rep eat itself un til w e reac h some round t where red instead decides to supp ort one of its allies to claim the cen ter sp ot f 3 g.
+This is sho wn in scenario 5c.
+This happ ens when u r ed!
+pink b ecomes high enough suc h that when red is ev aluating the mo v e wh e re it supp orts pink, it ev aluates V U i ( s t) > q r ed, where q r ed is the fallbac k v alue for red when no deal is made.
+This allo ws red to sacri ce its o wn utilit y for the b ene t of its ally.
+The b ene t for red in this scenario is that the relationship v alue u pink!
+r ed will increase drastically.
+This will mak e pink fa v or m o v es that increase red's utilit y.
+This ho w ev er, do es not guaran tee that pink will do so.
+If a mo v e is a v ailable that will increase its win rate high e n ough it will c ho ose that mo v e ev en if decreases red' s utilit y.
+In others w ords, there is no guaran tee that the fa v or will b e re cip ro cated.
+(a) Starting p osition a v ailable p oin ts are lo cated at no de 7 and 3 (b) Stalemate mo v e ev ery one tries to secure a p oin t for them self.
+(c) Red supp orts the mo v e to 3 securing the p oin t for Pink Figure 5: Example of b ene ts of relationship a w are agen ts.
+(a) Starting p osition b efore an y one mo v es, (b) If th e agen ts w ould not ha v e an y U score this p osition w ould rep eat in de nitely, eac h agen ts tries to secure a p oin t but b ounces bac k b ec au s e there is no ma jorit y.
+The U score for red in regards to pink and y ello w increases.
+(c) After rep eatin g enough rounds, the U score of Red and Pink is so high that Red decides to help Pink ge t a p oin t.
+3.2.2 Second-Order Theory of Mind (T oM2) W e ha v e so far discussed h o w the baseline agen t can b e transformed in to a relationship a w are agen t.
+With only rst order of mind, t he baseline agen t can form dynamic relationships with other agen ts.
+In sec tion 3.1.2, w e formalized ho w the baseline agen t can b e c hanged to b ecome a second order theory of mind agen t.
+W e no w c on s id e r ho w these t w o ideas, relationship a w are agen ts and higher order r e asonin g, can b e com bined.
+Sp eci cally, w e prop ose a second order T oM agen t that not only an ticipates its opp onen t's fallbac k v alues through recursiv e BA TNA sim ulations, but also adjusts its ev aluations and prop osals based on its ev olving in terp ersonal relationships.
+The mec hanisms for ge n e r ating prop osals and up dating f allbac k v alues r e main the same as t hos e used b y the baseline agen t, follo wing In ternal Dynamic Bargaining Sim ulation (B A TNA up date for T oMk agen t) algorithm describ ed in Section.
+3.1.2.
+Ho w ev er, with the in tro duction of relationship a w are v alue functions using U, some in teresting new dynamics b egin to em erge.
+Returning our atten tion to example in Figure: 4 W e explained h o w the baseline agen t p r ed can utilize its higher T oM to recognize that it migh t ha v e to not adv ance their third unit to w ards th e cen ter to b e able to secure a deal with p bl ue.
+F or the relationship a w are agen t, there is a new dynamic that the agen t considers during its sim ulation: 1.
+u bl ue!
+r ed: Ho w the opp osing agen t p bl ue ev aluates their relationship 2.
+u bl ue!
+g r een: Ho w the opp osing agen t p bl ue ev al uates the relationship b et w een the other agen t This will c hange what mo v e p r ed will suggest to b e able to secure a deal and re ceiv e one of the a v ailable supply cen ters.
+T h e di eren t mo v es are sho wn in 6.
+If the relationship u bl ue!
+r ed is high enough ( re d has help ed blue in th e past), then p bl ue will accept p r ed b est mo v e, whic h is to mo v e closer to the cen ter.
+This results in scenario 6a.
+If u bl ue!
+r ed is not high enough, or if u bl ue!
+g r een is h igh enough for p bl ue to f a v or deals to p g r een then p r ed migh t ha v e to d e l ib erately redu c e its win rate b y mo vi ng a w a y from the cen ter.
+This results in scenario 6b.
+If u bl ue!
+g r een is v ery lo w, then p bl ue will fa v or deals that reduces the win rate 12 n S nj ^ 'R( 3f 7n (R; ..
+0 ^ 7o.
+(V* O = h (a) Red is able to pla y its b est mo v e and mak e a deal with blue.
+(b) Red mak e s a deal with blue and mo v es bac k.
+(c) Red is able to mak e a deal with blue b y blo c k i ng green.
+Figure 6: Three p ossible scenarios where red can use its higher order theory of mind to mak e a deal.
+(a) Blue and red ha v e high relationship, and red is able to rely on that and use its b est mo v e, (b) Blue and green ha v e high relationship, and the only w a y red is able to mak e a deal is b y going bac k to 9.
+(c) Blue and green ha v e lo w relationship and red is able to mak e a deal b y b lo c king green (blue's enem y).
+of p g r een.
+This results in scenario 6c wh e re p r ed is able to mak e a deal with p bl ue b y blo c king the path of p g r een.
+4 Discussions After analysis of the U i w e no w h yp othesise that more c ompl ic ated b eha vior lik e b etra y al and sanctioning could emerge naturally from the relationship score.
+T ak e for example th e stalemate scenario in Figure 5 initial m utual blo c ks k ee p all pla y ers in deadlo c k, but rep e ated roun ds cause Red's relationships U red!
+pink and U red!
+y ello w to div erge, ultimately enabling a co op erativ e breakthrough.
+Our baseline analysis sho ws signs that ev e n Baseline Negotiator gain substan tially from just T oMk.
+When k is to o high ho w ev er, the agen ts starts o v erestimating the qualit y of deals made b y other agen ts.
+P erhaps there is a n e ed for a m ec hanism that dynamically lo w ers k.
+The in tro du c ti on of a relationship score sho ws sign of general agen ts that can p erform complex negotiation without the need to construct s p eci c Deviators or Defensiv e Agen ts.
+By up dating a single relationship v ariable p er opp onen t w e b eliev e that agen ts can exhibit n uanced b eha viors suc h as alliances, b etra y als, and sanctions.
+Across fully sim ulated scenarios, agen ts will fall in to patterns th at mirror h uman "long-term friendship" (sustained m utual supp ort) or "bac kstab" (sudden switc hes when Nash scores c hange).
+W e de ne this as agen t alignmen t, and b eliev e this is what agen t s shou ld w ork to up hold with their allies.
+It is not enough to only uphold a high relation s h ip sco r e w i th y our all y, y ou also nev er w an t t o giv e them the opp ortunit y to b etra y y ou.
+4.1 F uture Dev elopmen t While our theoretical f rame w ork demonstrates ho w higher-order Theory of Mind and relationship dynamics can enhance agen t b eha vior i n Diplomacy, sev eral asp ects remain to b e lo ok ed deep er in to.
+First, w e plan to implemen t, agen t-based sim ulations to empirically v erify our h yp othesis.
+Relationship-a w are T oM { k agen ts against standard Baseline Negotiators migh t measure metrics suc h as deal-acceptance rates, alliance longevit y, and win probabilities.
+These e x p erimen ts will test relationship v ariable and ma y unco v er asp ects not captured in our static analysis.
+Also, w e w an t to explore the relationship up date rate, an d pr op osal-set s i z e K |to iden tify regions that yield comp e lli ng strategic b eha viors (e.g., stable alliences, timely b etra y als, or sanctioning).
+T ec hniques lik e grid searc h or Ba y esian optimization migh t help us tuning th e se v ariables to design agen ts with tailored so cial strategies.
+Finally, recognizing that real Diplomacy often in v olv es m ulti-part y treaties, w e aim to extend our M B DS framew ork and T oM{ k reasoning to supp ort n -agen t deals.
+This will allo w us to study ho w higher-order 13 reasoning scales in more complex negotiation settings and whether new forms of s tr a t e gic complexit y emerge.
+5 Conclusions In this pap er, w e ha v e examined DeepMind's negotiation [ 3] framew ork for the game of D iplomac y and prop osed extensions based on higher-order Theory of Mi nd and mo delling relationships.
+Start ing from honest Baseline Negotiators, whic h alw a ys honor agreemen ts, w e formalized ho w rstand second-order T oM agen ts can an ticipate opp onen t b eha vior w i th BA TNA sim ulation.
+W e then in tro duced a rudemen tary relationship score that up dates after eac h round based on ST A VE utilit y estimates, and sho w ed ho w incorp orating this score in to the state-v alue fu nc t ion yields ric her, more h uman-lik e b eha viors|suc h and migh t in tro duce alliance formation, b e tr a y al, and sanctioning|ev en without explicit Deviator or Defensiv e Agen t proto cols.
+Our theoretical analysis suggests that ev en minimal extensions a single relationship v ariable p er opp onen t and a higher-order reasoning can pro duce complex strategic patterns, including sustained co op eration and sudden b etra y al.
+These mirror observ ed elemen ts in h uman pla y and p oin t uni ed metho d for mo deling b oth trust an d mistrust in m ulti-agen t negotiations.
+By fo cusing on the honest Baseline Negotiator as our core building bl o c k, w e establish a clear foundation f or future w ork on more sophisticated agen ts and m ulti-part y treaties.
+Ov erall, our con tribu tions la y the groundw ork for empirically v alidating these ideas through sim ulation, tuning b eha vioral h yp erparameters, and ultimately in tegrating h uman opp onen ts.
+W e b eliev e this framew ork o ers a promising path to w ard dev eloping Diplomacy agen ts that not only ac hiev e s tr ong p erformance but also exhibit the so cial reasoning of h umans.
+14 References [1] An ton Bakh tin, Noam Bro wn, Emily Dinan, Gabriele F arina, Colin Flahert y, Daniel F ried, Andrew Go, Jonathan Gra y, Hengyuan Hu, A th ul P aul Jacob, et al.
+Human-lev el pla y in th e game of diplomacy b y com bining lan guage mo dels with strategic reasoning.
+Scienc e, 2022.
+[2] Harmen de W eerd, Rinek e V erbrugge, and Bart V erheij.
+Agen t-based mo dels for higher-order theory of mind.
+A dvanc es in Intel ligent Systems and Computing, 229:213{232, 01 2014.
+[3] anos ar, T om Eccles, Ian Gemp, Andrea T acc hetti, Kevin R McKee, Mateusz Malino wski, Thore Graep el, and Y oram Bac hrac h.
+Negotiation and honest y in arti cial in telligence m etho ds for the b oard game of diplomacy.
+Natur e Communi c ations, 2022.
+[4] Da vid Premac k and Guy W o o dru.
+Do es a c himpanzee ha v e a theory of mind.
+Behavior al and Br ain Scienc es, 1:515 { 526, 12 1978.
+[5] Harmen W eerd, Rinek e V erbrugge, and Bart V erheij.
+Ne gotiat ing with other minds: the role of recursiv e theory of mind in negotiation w it h incomplete information.
+A utono m ous A gents and M ulti-A gent Systems, 31(2):250{287, Marc h 2017.
+15 / ;v L] > u '%G "% oQi ( J c <http://www.ams.org> 003.002 Copyright (c) 1997, 2009 American Mathematical Society (<http://www.ams.org>), with Reserved Font Name CMEX10.
+CMEX10 Computer Modern Medium i~ WVV 6 C {N?
+$ ig 2F K] % 2: #/=Z N | P >% 1d ~ #OX $ Me 0 ;`} M X hm c GNU General Public License 0.3 Computer Modern Roman Computer Modern Medium / 2
