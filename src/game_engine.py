@@ -437,9 +437,37 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
 
     state_index = {'value': 0}
 
+    def _set_button_enabled(button: Button, *, enabled: bool, base_color: str, base_hover: str) -> None:
+        button.eventson = enabled
+        face_color = base_color if enabled else '#d3d3d3'
+        hover_color = base_hover if enabled else '#c0c0c0'
+        button.ax.patch.set_facecolor(face_color)
+        button.hovercolor = hover_color
+        label_color = 'black' if enabled else '#6f6f6f'
+        button.label.set_color(label_color)
+
+    button_styles: Dict[str, Tuple[str, str]] = {}
+
+    axprev = plt.axes([0.3, 0.05, 0.15, 0.08])
+    axnext = plt.axes([0.55, 0.05, 0.15, 0.08])
+    bprev = Button(axprev, 'Previous')
+    bnext = Button(axnext, 'Next')
+
+    button_styles['prev'] = (bprev.color, bprev.hovercolor)
+    button_styles['next'] = (bnext.color, bnext.hovercolor)
+
+    def update_buttons() -> None:
+        at_start = state_index['value'] == 0
+        at_end = state_index['value'] == len(states) - 1
+        base_prev, base_prev_hover = button_styles['prev']
+        base_next, base_next_hover = button_styles['next']
+        _set_button_enabled(bprev, enabled=not at_start, base_color=base_prev, base_hover=base_prev_hover)
+        _set_button_enabled(bnext, enabled=not at_end, base_color=base_next, base_hover=base_next_hover)
+
     def draw_current() -> None:
         idx = state_index['value']
         _draw_mesh_state(ax, states[idx], pos, titles[idx])
+        update_buttons()
         fig.canvas.draw_idle()
 
     def go_next(event) -> None:
@@ -452,10 +480,6 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
             state_index['value'] -= 1
             draw_current()
 
-    axprev = plt.axes([0.3, 0.05, 0.15, 0.08])
-    axnext = plt.axes([0.55, 0.05, 0.15, 0.08])
-    bprev = Button(axprev, 'Previous')
-    bnext = Button(axnext, 'Next')
     bprev.on_clicked(go_prev)
     bnext.on_clicked(go_next)
 
