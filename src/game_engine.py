@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Tuple, Optional, Iterable
 # New: graph + viz
 import networkx as nx
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 
 # ============================================================
 # Minimal Diplomacy-like engine (graph-based) with visualization
@@ -365,8 +366,7 @@ def demo_state_mesh() -> GameState:
     return s
 
 
-def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
-    # Fixed grid positions to match your image
+def _mesh_positions() -> Dict[str, Tuple[float, float]]:
     grid_pos = {
         # row 0
         "TL": (0, 2), "1": (1, 2), "4": (2, 2), "2": (3, 2), "0": (4, 2),
@@ -375,55 +375,142 @@ def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
         # row 2
         "BL": (0, 0), "13": (1, 0), "12": (2, 0), "11": (3, 0), "10": (4, 0),
     }
-    # scale to nicer figure coords
-    pos = {k: (v[0]*1.2, v[1]*1.0) for k, v in grid_pos.items()}
+    return {k: (v[0] * 1.2, v[1] * 1.0) for k, v in grid_pos.items()}
 
-    plt.figure(figsize=(6, 3.6))
-    nx.draw_networkx_edges(state.graph, pos)
 
+def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float, float]], title: str) -> None:
+    ax.clear()
+    nx.draw_networkx_edges(state.graph, pos, ax=ax)
 
     sc_nodes = [n for n, d in state.graph.nodes(data=True) if d.get('is_supply_center', False)]
     non_sc = [n for n in state.graph.nodes() if n not in sc_nodes]
-    # Draw main nodes (provinces)
-    nx.draw_networkx_nodes(state.graph, pos, nodelist=non_sc, node_color='white', edgecolors='black', linewidths=1, node_size=1200)
-    nx.draw_networkx_nodes(state.graph, pos, nodelist=sc_nodes, node_color='white', edgecolors='red', linewidths=1, node_size=1200)
-    nx.draw_networkx_labels(state.graph, pos, font_size=9)
+    nx.draw_networkx_nodes(
+        state.graph,
+        pos,
+        nodelist=non_sc,
+        node_color='white',
+        edgecolors='black',
+        linewidths=1,
+        node_size=1200,
+        ax=ax,
+    )
+    nx.draw_networkx_nodes(
+        state.graph,
+        pos,
+        nodelist=sc_nodes,
+        node_color='white',
+        edgecolors='red',
+        linewidths=1,
+        node_size=1200,
+        ax=ax,
+    )
+    nx.draw_networkx_labels(state.graph, pos, font_size=9, ax=ax)
 
-    # Draw armies as smaller circles inside the province nodes
     for loc, unit in state.units.items():
         x, y = pos[loc]
-        plt.scatter([x], [y], s=350, c='C0', zorder=10, edgecolors='black', linewidths=1, marker='o')
-        plt.text(x, y, f"{unit.power[0]}", ha='center', va='center', fontsize=10, color='white', zorder=11)
+        ax.scatter([x], [y], s=350, c='C0', zorder=10, edgecolors='black', linewidths=1, marker='o')
+        ax.text(x, y, f"{unit.power[0]}", ha='center', va='center', fontsize=10, color='white', zorder=11)
+        ax.text(x, y + 0.18, f"{unit.power[0]}", ha='center', va='center', fontsize=10)
 
-    for loc, unit in state.units.items():
-        x, y = pos[loc]
-        plt.text(x, y + 0.18, f"{unit.power[0]}", ha='center', va='center', fontsize=10)
+    ax.set_title(title)
+    ax.axis('off')
 
-    plt.title(title)
-    plt.axis('off')
+
+def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
+    pos = _mesh_positions()
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    _draw_mesh_state(ax, state, pos, title)
     plt.tight_layout()
     plt.show()
 
 
-def demo_run_mesh_with_random_orders():
-    s = demo_state_mesh()
-    visualize_state_mesh(s, title="Initial — 5x3 Mesh Map")
+def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[List[str]] = None) -> None:
+    if not states:
+        return
 
-    # Everyone attempts a simple move toward the center if possible
-    orders: List[Order] = []
+    if titles is None or len(titles) != len(states):
+        titles = [f"Round {i}" for i in range(len(states))]
+
+    pos = _mesh_positions()
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    plt.subplots_adjust(bottom=0.25)
+
+    state_index = {'value': 0}
+
+    def _set_button_enabled(button: Button, *, enabled: bool, base_color: str, base_hover: str) -> None:
+        button.eventson = enabled
+        face_color = base_color if enabled else '#d3d3d3'
+        hover_color = base_hover if enabled else '#c0c0c0'
+        button.ax.patch.set_facecolor(face_color)
+        button.hovercolor = hover_color
+        label_color = 'black' if enabled else '#6f6f6f'
+        button.label.set_color(label_color)
+
+    button_styles: Dict[str, Tuple[str, str]] = {}
+
+    axprev = plt.axes([0.3, 0.05, 0.15, 0.08])
+    axnext = plt.axes([0.55, 0.05, 0.15, 0.08])
+    bprev = Button(axprev, 'Previous')
+    bnext = Button(axnext, 'Next')
+
+    button_styles['prev'] = (bprev.color, bprev.hovercolor)
+    button_styles['next'] = (bnext.color, bnext.hovercolor)
+
+    def update_buttons() -> None:
+        at_start = state_index['value'] == 0
+        at_end = state_index['value'] == len(states) - 1
+        base_prev, base_prev_hover = button_styles['prev']
+        base_next, base_next_hover = button_styles['next']
+        _set_button_enabled(bprev, enabled=not at_start, base_color=base_prev, base_hover=base_prev_hover)
+        _set_button_enabled(bnext, enabled=not at_end, base_color=base_next, base_hover=base_next_hover)
+
+    def draw_current() -> None:
+        idx = state_index['value']
+        _draw_mesh_state(ax, states[idx], pos, titles[idx])
+        update_buttons()
+        fig.canvas.draw_idle()
+
+    def go_next(event) -> None:
+        if state_index['value'] < len(states) - 1:
+            state_index['value'] += 1
+            draw_current()
+
+    def go_prev(event) -> None:
+        if state_index['value'] > 0:
+            state_index['value'] -= 1
+            draw_current()
+
+    bprev.on_clicked(go_prev)
+    bnext.on_clicked(go_next)
+
+    draw_current()
+    plt.show()
+
+
+def demo_run_mesh_with_random_orders(rounds: int = 3):
+    state = demo_state_mesh()
+    states = [state]
+    titles = ["Initial — 5x3 Mesh Map"]
+
     toward = {"TL": "7", "0": "3", "BL": "13", "10": "11", "8": "8"}
-    for loc, unit in list(s.units.items()):
-        if unit.power == Power("Red"):
-            orders.append(hold(unit))
-        else:
-            dest = toward.get(loc, None)
-            if dest and dest in s.legal_moves_from(loc):
+
+    for r in range(1, rounds + 1):
+        orders: List[Order] = []
+        for loc, unit in list(state.units.items()):
+            if unit.power == Power("Red"):
+                orders.append(hold(unit))
+                continue
+            dest = toward.get(loc)
+            if dest and dest in state.legal_moves_from(loc):
                 orders.append(move(unit, dest))
             else:
                 orders.append(hold(unit))
 
-    s2, res = Adjudicator(s).resolve(orders)
-    visualize_state_mesh(s2, title="After One Adjudication — 5x3 Mesh Map")
+        state, _ = Adjudicator(state).resolve(orders)
+        states.append(state)
+        titles.append(f"After Round {r} — 5x3 Mesh Map")
+
+    interactive_visualize_state_mesh(states, titles)
 
 
 if __name__ == "__main__":
