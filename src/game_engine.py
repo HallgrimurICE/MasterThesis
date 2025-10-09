@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Set, Tuple, Optional, Iterable
+from typing import Callable, Dict, List, Set, Tuple, Optional, Iterable, Union
 
 # New: graph + viz
 import networkx as nx
@@ -117,6 +117,97 @@ def support_hold(u: Unit, friend_loc: str) -> Order:
 
 def support_move(u: Unit, friend_from: str, friend_to: str) -> Order:
     return Order(unit=u, type=OrderType.SUPPORT, support_unit_loc=friend_from, support_target=friend_to)
+
+# ----- Agent helpers -----
+
+
+class Agent:
+    """Base class for programmable agents that can issue orders each round."""
+
+    def __init__(self, power: Power):
+        self.power = power
+        self._round_index = 0
+
+    def issue_orders(self, state: "GameState") -> List[Order]:
+        """Return this power's orders for the current round.
+
+        Subclasses should implement :meth:`_plan_orders` to describe their behaviour.
+        """
+
+        planned = self._plan_orders(state, self._round_index)
+        self._round_index += 1
+
+        for order in planned:
+            if order.unit.power != self.power:
+                raise ValueError(
+                    f"Agent for power {self.power} produced an order for {order.unit.power}."
+                )
+        # Ensure at most one order per unit; duplicates would break adjudication assumptions.
+        seen_units: Set[str] = set()
+        for order in planned:
+            if order.unit.loc in seen_units:
+                raise ValueError(
+                    f"Multiple orders issued for unit currently in {order.unit.loc}."
+                )
+            seen_units.add(order.unit.loc)
+        return planned
+
+    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
+        raise NotImplementedError
+
+
+Directive = Union[str, Order, None, Callable[[Unit, "GameState"], Order]]
+
+
+class ScriptedAgent(Agent):
+    """Agent whose behaviour is programmed via a per-round script.
+
+    The script maps the (zero-indexed) round number to orders for units currently
+    controlled by the power. Orders can be provided as:
+
+    - ``"H"`` / ``"HOLD"`` / ``None`` – keep the unit in place.
+    - Province names (``str``) – attempt to move to that province if legal.
+    - Callables ``(unit, state) -> Order`` – useful for more complex directives.
+    - Explicit :class:`Order` objects – full control, e.g., for support orders.
+
+    Unscripted units or invalid destinations default to HOLD.
+    """
+
+    def __init__(self, power: Power, script: Dict[int, Dict[str, Directive]]):
+        super().__init__(power)
+        self.script = script
+
+    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
+        orders: List[Order] = []
+        planned_orders = self.script.get(round_index, {})
+        for unit in state.units.values():
+            if unit.power != self.power:
+                continue
+
+            directive = planned_orders.get(unit.loc)
+            if callable(directive):
+                orders.append(directive(unit, state))
+                continue
+            if isinstance(directive, Order):
+                orders.append(directive)
+                continue
+
+            if directive is None:
+                orders.append(hold(unit))
+                continue
+
+            if isinstance(directive, str):
+                if directive.upper() in {"H", "HOLD"}:
+                    orders.append(hold(unit))
+                    continue
+                if directive in state.legal_moves_from(unit.loc):
+                    orders.append(move(unit, directive))
+                    continue
+
+            # Fallback: illegal or unrecognised directive
+            orders.append(hold(unit))
+
+        return orders
 
 # ----- Adjudicator -----
 @dataclass
@@ -276,6 +367,56 @@ class Adjudicator:
         next_state = self.state.copy()
         next_state.units = new_units
         return next_state, resolution
+
+# ----- Game runners -----
+
+
+def run_rounds_with_agents(
+    initial_state: GameState,
+    agents: Dict[Power, Agent],
+    rounds: int,
+    *,
+    title_prefix: str = "After Round {round}",
+) -> Tuple[List[GameState], List[str]]:
+    """Execute a number of rounds using programmable agents.
+
+    Parameters
+    ----------
+    initial_state:
+        Starting :class:`GameState`.
+    agents:
+        Mapping from power to the :class:`Agent` responsible for issuing its orders.
+        Powers without a registered agent simply HOLD each round.
+    rounds:
+        Number of rounds to simulate.
+    title_prefix:
+        Format string used when generating titles for visualisation; the placeholder
+        ``{round}`` is replaced with the one-indexed round number.
+
+    Returns
+    -------
+    (states, titles):
+        A tuple containing the sequence of game states (including the initial state)
+        and corresponding titles.
+    """
+
+    state = initial_state
+    states = [state]
+    titles = ["Initial State"]
+
+    for round_idx in range(1, rounds + 1):
+        round_orders: List[Order] = []
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent_orders = agent.issue_orders(state)
+            round_orders.extend(agent_orders)
+
+        state, _ = Adjudicator(state).resolve(round_orders)
+        states.append(state)
+        titles.append(title_prefix.format(round=round_idx))
+
+    return states, titles
 
 # ----- Graph utilities & visualization -----
 
@@ -513,7 +654,59 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
     interactive_visualize_state_mesh(states, titles)
 
 
+def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
+    """Showcase programmable agents on the 5x3 mesh map."""
+
+    state = demo_state_mesh()
+
+    blue_agent = ScriptedAgent(
+        Power("Blue"),
+        {
+            0: {"TL": "7"},
+            1: {"7": "8"},
+            2: {"8": "8"},
+        },
+    )
+    pink_agent = ScriptedAgent(
+        Power("Pink"),
+        {
+            0: {"0": "3"},
+            1: {"3": "8"},
+        },
+    )
+    green_agent = ScriptedAgent(
+        Power("Green"),
+        {
+            0: {"BL": "13"},
+            1: {"13": "8"},
+        },
+    )
+    yellow_agent = ScriptedAgent(
+        Power("Yellow"),
+        {
+            0: {"10": "11"},
+            1: {"11": "8"},
+        },
+    )
+
+    agents: Dict[Power, Agent] = {
+        blue_agent.power: blue_agent,
+        pink_agent.power: pink_agent,
+        green_agent.power: green_agent,
+        yellow_agent.power: yellow_agent,
+    }
+
+    states, titles = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="After Round {round} — Scripted 5x3 Mesh",
+    )
+
+    interactive_visualize_state_mesh(states, titles)
+
+
 if __name__ == "__main__":
     # still run the tiny triangle tests for sanity, then show mesh demo
     # run_self_test_and_show()
-    demo_run_mesh_with_random_orders()
+    demo_run_mesh_with_scripted_agents()
