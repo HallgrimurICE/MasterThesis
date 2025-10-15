@@ -8,6 +8,7 @@ import random
 # New: graph + viz
 import networkx as nx
 import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
 from matplotlib.widgets import Button
 
 # ============================================================
@@ -481,6 +482,28 @@ def build_graph(board: Dict[str, Province]) -> nx.Graph:
     return G
 
 
+POWER_COLORS: Dict[str, str] = {
+    "Blue": "#1f77b4",
+    "Pink": "#ff69b4",
+    "Red": "#d62728",
+    "Green": "#2ca02c",
+    "Yellow": "#ffbf00",
+}
+
+
+def _power_color(power: Power) -> str:
+    return POWER_COLORS.get(str(power), "#666666")
+
+
+def _power_text_color(color: str) -> str:
+    try:
+        rgb = mcolors.to_rgb(color)
+    except ValueError:
+        return "white"
+    luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+    return "black" if luminance > 0.6 else "white"
+
+
 def visualize_state(state: GameState, title: str = "Board State"):
     # Layout: fixed for stability (spring layout is fine for small maps)
     pos = nx.spring_layout(state.graph, seed=7)
@@ -497,8 +520,12 @@ def visualize_state(state: GameState, title: str = "Board State"):
 
     # Draw units as annotations on nodes
     for loc, unit in state.units.items():
-        (x, y) = pos[loc]
-        plt.text(x, y + 0.07, f"{unit.power[0]}", ha='center', va='center', fontsize=10)
+        x, y = pos[loc]
+        color = _power_color(unit.power)
+        text_color = _power_text_color(color)
+        plt.scatter([x], [y], s=350, c=color, zorder=10, edgecolors='black', linewidths=1, marker='o')
+        plt.text(x, y, f"{unit.power[0]}", ha='center', va='center', fontsize=10, color=text_color, zorder=11)
+        plt.text(x, y + 0.07, f"{unit.power}", ha='center', va='center', fontsize=9)
 
     plt.title(title)
     plt.axis('off')
@@ -600,9 +627,11 @@ def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float,
 
     for loc, unit in state.units.items():
         x, y = pos[loc]
-        ax.scatter([x], [y], s=350, c='C0', zorder=10, edgecolors='black', linewidths=1, marker='o')
-        ax.text(x, y, f"{unit.power[0]}", ha='center', va='center', fontsize=10, color='white', zorder=11)
-        ax.text(x, y + 0.18, f"{unit.power[0]}", ha='center', va='center', fontsize=10)
+        color = _power_color(unit.power)
+        text_color = _power_text_color(color)
+        ax.scatter([x], [y], s=350, c=color, zorder=10, edgecolors='black', linewidths=1, marker='o')
+        ax.text(x, y, f"{unit.power[0]}", ha='center', va='center', fontsize=10, color=text_color, zorder=11)
+        ax.text(x, y + 0.18, f"{unit.power}", ha='center', va='center', fontsize=9)
 
     ax.set_title(title)
     ax.axis('off')
