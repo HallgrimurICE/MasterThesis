@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Callable, Dict, List, Set, Tuple, Optional, Iterable, Union
 
+import random
+
 # New: graph + viz
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -206,6 +208,43 @@ class ScriptedAgent(Agent):
 
             # Fallback: illegal or unrecognised directive
             orders.append(hold(unit))
+
+        return orders
+
+
+class RandomAgent(Agent):
+    """Agent that issues random legal orders without any scripted behaviour."""
+
+    def __init__(
+        self,
+        power: Power,
+        *,
+        hold_probability: float = 0.2,
+        rng: Optional[random.Random] = None,
+    ):
+        super().__init__(power)
+        if not 0.0 <= hold_probability <= 1.0:
+            raise ValueError("hold_probability must be between 0 and 1 inclusive")
+        self.hold_probability = hold_probability
+        self._rng = rng or random.Random()
+
+    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
+        orders: List[Order] = []
+        for unit in state.units.values():
+            if unit.power != self.power:
+                continue
+
+            legal_moves = state.legal_moves_from(unit.loc)
+            choose_hold = (
+                not legal_moves
+                or self._rng.random() < self.hold_probability
+            )
+
+            if choose_hold:
+                orders.append(hold(unit))
+            else:
+                destination = self._rng.choice(legal_moves)
+                orders.append(move(unit, destination))
 
         return orders
 
@@ -654,6 +693,36 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
     interactive_visualize_state_mesh(states, titles)
 
 
+def demo_run_mesh_with_random_agents(
+    rounds: int = 5,
+    *,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+) -> None:
+    """Run the 5x3 mesh map using autonomous random agents with visualisation."""
+
+    state = demo_state_mesh()
+    base_rng = random.Random(seed)
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
+        )
+
+    states, titles = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="After Round {round} — Random Agents on 5x3 Mesh",
+    )
+
+    interactive_visualize_state_mesh(states, titles)
+
+
 def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
     """Showcase programmable agents on the 5x3 mesh map."""
 
@@ -709,4 +778,4 @@ def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
 if __name__ == "__main__":
     # still run the tiny triangle tests for sanity, then show mesh demo
     # run_self_test_and_show()
-    demo_run_mesh_with_scripted_agents()
+    demo_run_mesh_with_random_agents()
