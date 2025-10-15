@@ -6,10 +6,66 @@ from typing import Callable, Dict, List, Set, Tuple, Optional, Iterable, Union
 import random
 
 # New: graph + viz
-import networkx as nx
-import matplotlib.pyplot as plt
-from matplotlib import colors as mcolors
-from matplotlib.widgets import Button
+try:
+    import networkx as nx  # type: ignore
+    NX_AVAILABLE = True
+except ImportError:  # pragma: no cover - fallback used when networkx missing
+    NX_AVAILABLE = False
+
+    class _FallbackGraph:
+        """Minimal undirected graph supporting the operations used in tests."""
+
+        def __init__(self):
+            self._adjacency: Dict[str, Set[str]] = {}
+            self._node_attrs: Dict[str, Dict[str, Union[bool, str]]] = {}
+
+        def add_node(self, node: str, **attrs: Union[bool, str]) -> None:
+            self._adjacency.setdefault(node, set())
+            if attrs:
+                existing = self._node_attrs.setdefault(node, {})
+                existing.update(attrs)
+
+        def add_edge(self, u: str, v: str) -> None:
+            self.add_node(u)
+            self.add_node(v)
+            self._adjacency[u].add(v)
+            self._adjacency[v].add(u)
+
+        def neighbors(self, node: str) -> Iterable[str]:
+            return iter(self._adjacency.get(node, set()))
+
+        def nodes(self, data: bool = False):
+            if data:
+                return [
+                    (node, dict(self._node_attrs.get(node, {})))
+                    for node in self._adjacency
+                ]
+            return list(self._adjacency)
+
+        def __getitem__(self, node: str) -> Set[str]:
+            return self._adjacency.get(node, set())
+
+    class _FallbackNX:
+        Graph = _FallbackGraph
+
+        def __getattr__(self, name: str):  # pragma: no cover - diagnostics only
+            raise RuntimeError(
+                "networkx is required for visualization features and advanced graph "
+                f"operations (attempted to access '{name}')."
+            )
+
+    nx = _FallbackNX()  # type: ignore
+
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+    from matplotlib import colors as mcolors  # type: ignore
+    from matplotlib.widgets import Button  # type: ignore
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:  # pragma: no cover - fallback used when matplotlib missing
+    MATPLOTLIB_AVAILABLE = False
+    plt = None  # type: ignore
+    mcolors = None  # type: ignore
+    Button = None  # type: ignore
 
 # ============================================================
 # Minimal Diplomacy-like engine (graph-based) with visualization
@@ -496,6 +552,8 @@ def _power_color(power: Power) -> str:
 
 
 def _power_text_color(color: str) -> str:
+    if not MATPLOTLIB_AVAILABLE or mcolors is None:
+        return "white"
     try:
         rgb = mcolors.to_rgb(color)
     except ValueError:
@@ -505,6 +563,10 @@ def _power_text_color(color: str) -> str:
 
 
 def visualize_state(state: GameState, title: str = "Board State"):
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     # Layout: fixed for stability (spring layout is fine for small maps)
     pos = nx.spring_layout(state.graph, seed=7)
 
@@ -531,6 +593,113 @@ def visualize_state(state: GameState, title: str = "Board State"):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
+
+# ----- Cooperative attack scenario (triangle map) -----
+
+
+def _triangle_board() -> Dict[str, Province]:
+    """Create a fully connected three-province map for cooperation demos."""
+
+    adjacency = {
+        "A": {"B", "C"},
+        "B": {"A", "C"},
+        "C": {"A", "B"},
+    }
+    board: Dict[str, Province] = {}
+    for name, neighbors in adjacency.items():
+        board[name] = Province(
+            name=name,
+            neighbors=set(neighbors),
+            is_supply_center=True,
+        )
+    return board
+
+
+def cooperative_attack_initial_state() -> GameState:
+    """Initialise three powers poised around a shared target province."""
+
+    board = _triangle_board()
+    units = {
+        "A": Unit(Power("Aurora"), "A"),
+        "B": Unit(Power("Borealis"), "B"),
+        "C": Unit(Power("Crimson"), "C"),
+    }
+    powers = {u.power for u in units.values()}
+    return GameState(board=board, units=units, powers=powers)
+
+
+def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
+    """Compare outcomes with and without coordinated support."""
+
+    scenarios: Dict[str, Tuple[GameState, Resolution, List[Order]]] = {}
+
+    def run_case(order_builder: Callable[[GameState], List[Order]], label: str) -> None:
+        state = cooperative_attack_initial_state()
+        orders = order_builder(state)
+        next_state, resolution = Adjudicator(state).resolve(orders)
+        scenarios[label] = (next_state, resolution, orders)
+
+    def solo_attack(state: GameState) -> List[Order]:
+        attacker = state.units["A"]
+        ally = state.units["B"]
+        defender = state.units["C"]
+        return [
+            move(attacker, "C"),
+            hold(ally),
+            hold(defender),
+        ]
+
+    def supported_attack(state: GameState) -> List[Order]:
+        attacker = state.units["A"]
+        supporter = state.units["B"]
+        defender = state.units["C"]
+        return [
+            move(attacker, "C"),
+            support_move(supporter, "A", "C"),
+            hold(defender),
+        ]
+
+    run_case(solo_attack, "solo_attack")
+    run_case(supported_attack, "supported_attack")
+
+    return scenarios
+
+
+def print_two_power_cooperation_report() -> None:
+    """Emit a textual description of the cooperative attack scenario."""
+
+    initial_state = cooperative_attack_initial_state()
+    print("=== Cooperative attack scenario ===")
+    print("Initial unit placement:")
+    for loc in sorted(initial_state.units):
+        unit = initial_state.units[loc]
+        sc_flag = " (SC)" if initial_state.board[loc].is_supply_center else ""
+        print(f"  - {unit.power} unit in {loc}{sc_flag}")
+
+    outcomes = simulate_two_power_cooperation()
+    for label in ("solo_attack", "supported_attack"):
+        next_state, resolution, orders = outcomes[label]
+        print(f"\nScenario: {label.replace('_', ' ').title()}")
+        print("Orders issued:")
+        for order in orders:
+            print(f"  * {order}")
+        succeeded = sorted(str(o) for o in resolution.succeeded)
+        failed = sorted(str(o) for o in resolution.failed)
+        dislodged = sorted(resolution.dislodged)
+        print("Succeeded orders:")
+        for text in succeeded:
+            print(f"    {text}")
+        print("Failed orders:")
+        for text in failed:
+            print(f"    {text}")
+        print(f"Dislodged provinces: {dislodged if dislodged else 'None'}")
+        occupying = {
+            loc: unit.power for loc, unit in sorted(next_state.units.items())
+        }
+        print("Post-resolution occupants:")
+        for loc, power in occupying.items():
+            print(f"  - {loc}: {power}")
+
 
 # ----- Custom 5x3 mesh map (like your image) & demo -----
 
@@ -598,6 +767,10 @@ def _mesh_positions() -> Dict[str, Tuple[float, float]]:
 
 
 def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float, float]], title: str) -> None:
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     ax.clear()
     nx.draw_networkx_edges(state.graph, pos, ax=ax)
 
@@ -638,6 +811,10 @@ def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float,
 
 
 def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     pos = _mesh_positions()
     fig, ax = plt.subplots(figsize=(6, 3.6))
     _draw_mesh_state(ax, state, pos, title)
@@ -651,6 +828,11 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
 
     if titles is None or len(titles) != len(states):
         titles = [f"Round {i}" for i in range(len(states))]
+
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None or Button is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
 
     pos = _mesh_positions()
     fig, ax = plt.subplots(figsize=(6, 3.6))
