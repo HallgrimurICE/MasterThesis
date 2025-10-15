@@ -117,6 +117,25 @@ class Order:
             return f"{self.unit.power} {self.unit.loc} S {self.support_unit_loc}"
         return "?"
 
+
+def describe_order(order: Order) -> str:
+    """Return a human-readable description of an order."""
+
+    unit = order.unit
+    if order.type == OrderType.HOLD:
+        return f"{unit.power} holds position in {unit.loc}."
+    if order.type == OrderType.MOVE and order.target:
+        return f"{unit.power} moves from {unit.loc} to {order.target}."
+    if order.type == OrderType.SUPPORT:
+        if order.support_target:
+            return (
+                f"{unit.power} supports {order.support_unit_loc} moving to "
+                f"{order.support_target}."
+            )
+        if order.support_unit_loc:
+            return f"{unit.power} supports {order.support_unit_loc} to hold."
+    return f"{unit.power} issues an order."
+
 # ----- Game State -----
 @dataclass
 class GameState:
@@ -683,6 +702,7 @@ def print_two_power_cooperation_report() -> None:
         print("Orders issued:")
         for order in orders:
             print(f"  * {order}")
+            print(f"    -> {describe_order(order)}")
         succeeded = sorted(str(o) for o in resolution.succeeded)
         failed = sorted(str(o) for o in resolution.failed)
         dislodged = sorted(resolution.dislodged)
