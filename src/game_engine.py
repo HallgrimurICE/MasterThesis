@@ -395,16 +395,28 @@ class Adjudicator:
                     else:
                         resolution.failed.add(o)
                 else:
-                    moved = any(new_units.get(dest) == u and src == o.support_unit_loc and dest == o.support_target
-                                 for (src, dest), u in [((ou.unit.loc, ou.target), ou.unit) for ou in orders if ou.type == OrderType.MOVE])
+                    moved = any(
+                        new_units.get(dest) == u
+                        and src == o.support_unit_loc
+                        and dest == o.support_target
+                        for (src, dest), u in [
+                            ((ou.unit.loc, ou.target), ou.unit)
+                            for ou in orders
+                            if ou.type == OrderType.MOVE
+                        ]
+                    )
                     if moved:
                         resolution.succeeded.add(o)
                     else:
                         resolution.failed.add(o)
 
         resolution.dislodged = dislodged
+        normalized_units: Dict[str, Unit] = {
+            loc: Unit(unit.power, loc)
+            for loc, unit in new_units.items()
+        }
         next_state = self.state.copy()
-        next_state.units = new_units
+        next_state.units = normalized_units
         return next_state, resolution
 
 # ----- Game runners -----
@@ -496,7 +508,7 @@ def visualize_state(state: GameState, title: str = "Board State"):
 # ----- Custom 5x3 mesh map (like your image) & demo -----
 
 def mesh_board_5x3() -> Dict[str, Province]:
-    """Build a 5x3 grid with horizontal, vertical, and diagonal (\) and (/) edges.
+    """Build a 5x3 grid with horizontal, vertical, and diagonal (\\) and (/) edges.
     Node labels chosen to match your picture where possible.
     Top row: TL, 1, 4, 2, 0
     Mid row: 6, 7, 8, 3, 9
