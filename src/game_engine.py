@@ -504,7 +504,7 @@ def run_rounds_with_agents(
     rounds: int,
     *,
     title_prefix: str = "After Round {round}",
-) -> Tuple[List[GameState], List[str]]:
+) -> Tuple[List[GameState], List[str], List[List[Order]]]:
     """Execute a number of rounds using programmable agents.
 
     Parameters
@@ -522,14 +522,15 @@ def run_rounds_with_agents(
 
     Returns
     -------
-    (states, titles):
-        A tuple containing the sequence of game states (including the initial state)
-        and corresponding titles.
+    (states, titles, orders_by_round):
+        A tuple containing the sequence of game states (including the initial state),
+        corresponding titles, and the list of orders issued in each round.
     """
 
     state = initial_state
     states = [state]
     titles = ["Initial State"]
+    orders_history: List[List[Order]] = []
 
     for round_idx in range(1, rounds + 1):
         round_orders: List[Order] = []
@@ -539,11 +540,12 @@ def run_rounds_with_agents(
             agent_orders = agent.issue_orders(state)
             round_orders.extend(agent_orders)
 
+        orders_history.append(list(round_orders))
         state, _ = Adjudicator(state).resolve(round_orders)
         states.append(state)
         titles.append(title_prefix.format(round=round_idx))
 
-    return states, titles
+    return states, titles, orders_history
 
 # ----- Graph utilities & visualization -----
 
@@ -684,6 +686,26 @@ def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, L
     return scenarios
 
 
+def _format_orders_with_actions(orders: Iterable[Order]) -> List[str]:
+    """Render orders alongside their human-readable descriptions."""
+
+    order_list = list(orders)
+    if not order_list:
+        return ["  (no orders issued)"]
+
+    order_lines = [f"  * {order}" for order in order_list]
+    descriptions = [describe_order(order) for order in order_list]
+    max_line = max(len(text) for text in order_lines)
+    header_order = "Order"
+    header_action = "Action"
+    formatted: List[str] = []
+    formatted.append(f"  {header_order}".ljust(max_line) + f" | {header_action}")
+    formatted.append(f"{'-' * max_line}-+-{'-' * len(header_action)}")
+    for line, description in zip(order_lines, descriptions):
+        formatted.append(f"{line.ljust(max_line)} | {description}")
+    return formatted
+
+
 def print_two_power_cooperation_report() -> None:
     """Emit a textual description of the cooperative attack scenario."""
 
@@ -700,21 +722,8 @@ def print_two_power_cooperation_report() -> None:
         next_state, resolution, orders = outcomes[label]
         print(f"\nScenario: {label.replace('_', ' ').title()}")
         print("Orders issued:")
-        if orders:
-            order_lines = [f"  * {order}" for order in orders]
-            descriptions = [describe_order(order) for order in orders]
-            max_line = max(len(text) for text in order_lines)
-            header_order = "Order"
-            header_action = "Action"
-            header_line = f"  {header_order}".ljust(max_line)
-            print(f"{header_line} | {header_action}")
-            divider = f"{'-' * max_line}-+-{'-' * len(header_action)}"
-            print(divider)
-            for line, description in zip(order_lines, descriptions):
-                padded = line.ljust(max_line)
-                print(f"{padded} | {description}")
-        else:
-            print("  (no orders issued)")
+        for line in _format_orders_with_actions(orders):
+            print(line)
         succeeded = sorted(str(o) for o in resolution.succeeded)
         failed = sorted(str(o) for o in resolution.failed)
         dislodged = sorted(resolution.dislodged)
@@ -941,6 +950,9 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
             else:
                 orders.append(hold(unit))
 
+        print(f"\nRound {r} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
         state, _ = Adjudicator(state).resolve(orders)
         states.append(state)
         titles.append(f"After Round {r} — 5x3 Mesh Map")
@@ -968,12 +980,17 @@ def demo_run_mesh_with_random_agents(
             rng=random.Random(agent_seed),
         )
 
-    states, titles = run_rounds_with_agents(
+    states, titles, orders_history = run_rounds_with_agents(
         state,
         agents,
         rounds,
         title_prefix="After Round {round} — Random Agents on 5x3 Mesh",
     )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
 
     interactive_visualize_state_mesh(states, titles)
 
@@ -1020,7 +1037,7 @@ def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
         yellow_agent.power: yellow_agent,
     }
 
-    states, titles = run_rounds_with_agents(
+    states, titles, _ = run_rounds_with_agents(
         state,
         agents,
         rounds,
@@ -1033,4 +1050,5 @@ def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
 if __name__ == "__main__":
     # still run the tiny triangle tests for sanity, then show mesh demo
     # run_self_test_and_show()
+    print_two_power_cooperation_report()
     demo_run_mesh_with_random_agents()
