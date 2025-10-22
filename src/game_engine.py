@@ -700,9 +700,21 @@ def print_two_power_cooperation_report() -> None:
         next_state, resolution, orders = outcomes[label]
         print(f"\nScenario: {label.replace('_', ' ').title()}")
         print("Orders issued:")
-        for order in orders:
-            print(f"  * {order}")
-            print(f"    -> {describe_order(order)}")
+        if orders:
+            order_lines = [f"  * {order}" for order in orders]
+            descriptions = [describe_order(order) for order in orders]
+            max_line = max(len(text) for text in order_lines)
+            header_order = "Order"
+            header_action = "Action"
+            header_line = f"  {header_order}".ljust(max_line)
+            print(f"{header_line} | {header_action}")
+            divider = f"{'-' * max_line}-+-{'-' * len(header_action)}"
+            print(divider)
+            for line, description in zip(order_lines, descriptions):
+                padded = line.ljust(max_line)
+                print(f"{padded} | {description}")
+        else:
+            print("  (no orders issued)")
         succeeded = sorted(str(o) for o in resolution.succeeded)
         failed = sorted(str(o) for o in resolution.failed)
         dislodged = sorted(resolution.dislodged)
