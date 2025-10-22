@@ -6,10 +6,66 @@ from typing import Callable, Dict, List, Set, Tuple, Optional, Iterable, Union
 import random
 
 # New: graph + viz
-import networkx as nx
-import matplotlib.pyplot as plt
-from matplotlib import colors as mcolors
-from matplotlib.widgets import Button
+try:
+    import networkx as nx  # type: ignore
+    NX_AVAILABLE = True
+except ImportError:  # pragma: no cover - fallback used when networkx missing
+    NX_AVAILABLE = False
+
+    class _FallbackGraph:
+        """Minimal undirected graph supporting the operations used in tests."""
+
+        def __init__(self):
+            self._adjacency: Dict[str, Set[str]] = {}
+            self._node_attrs: Dict[str, Dict[str, Union[bool, str]]] = {}
+
+        def add_node(self, node: str, **attrs: Union[bool, str]) -> None:
+            self._adjacency.setdefault(node, set())
+            if attrs:
+                existing = self._node_attrs.setdefault(node, {})
+                existing.update(attrs)
+
+        def add_edge(self, u: str, v: str) -> None:
+            self.add_node(u)
+            self.add_node(v)
+            self._adjacency[u].add(v)
+            self._adjacency[v].add(u)
+
+        def neighbors(self, node: str) -> Iterable[str]:
+            return iter(self._adjacency.get(node, set()))
+
+        def nodes(self, data: bool = False):
+            if data:
+                return [
+                    (node, dict(self._node_attrs.get(node, {})))
+                    for node in self._adjacency
+                ]
+            return list(self._adjacency)
+
+        def __getitem__(self, node: str) -> Set[str]:
+            return self._adjacency.get(node, set())
+
+    class _FallbackNX:
+        Graph = _FallbackGraph
+
+        def __getattr__(self, name: str):  # pragma: no cover - diagnostics only
+            raise RuntimeError(
+                "networkx is required for visualization features and advanced graph "
+                f"operations (attempted to access '{name}')."
+            )
+
+    nx = _FallbackNX()  # type: ignore
+
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+    from matplotlib import colors as mcolors  # type: ignore
+    from matplotlib.widgets import Button  # type: ignore
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:  # pragma: no cover - fallback used when matplotlib missing
+    MATPLOTLIB_AVAILABLE = False
+    plt = None  # type: ignore
+    mcolors = None  # type: ignore
+    Button = None  # type: ignore
 
 # ============================================================
 # Minimal Diplomacy-like engine (graph-based) with visualization
@@ -60,6 +116,25 @@ class Order:
                 return f"{self.unit.power} {self.unit.loc} S {self.support_unit_loc} -> {self.support_target}"
             return f"{self.unit.power} {self.unit.loc} S {self.support_unit_loc}"
         return "?"
+
+
+def describe_order(order: Order) -> str:
+    """Return a human-readable description of an order."""
+
+    unit = order.unit
+    if order.type == OrderType.HOLD:
+        return f"{unit.power} holds position in {unit.loc}."
+    if order.type == OrderType.MOVE and order.target:
+        return f"{unit.power} moves from {unit.loc} to {order.target}."
+    if order.type == OrderType.SUPPORT:
+        if order.support_target:
+            return (
+                f"{unit.power} supports {order.support_unit_loc} moving to "
+                f"{order.support_target}."
+            )
+        if order.support_unit_loc:
+            return f"{unit.power} supports {order.support_unit_loc} to hold."
+    return f"{unit.power} issues an order."
 
 # ----- Game State -----
 @dataclass
@@ -429,7 +504,7 @@ def run_rounds_with_agents(
     rounds: int,
     *,
     title_prefix: str = "After Round {round}",
-) -> Tuple[List[GameState], List[str]]:
+) -> Tuple[List[GameState], List[str], List[List[Order]]]:
     """Execute a number of rounds using programmable agents.
 
     Parameters
@@ -447,14 +522,15 @@ def run_rounds_with_agents(
 
     Returns
     -------
-    (states, titles):
-        A tuple containing the sequence of game states (including the initial state)
-        and corresponding titles.
+    (states, titles, orders_by_round):
+        A tuple containing the sequence of game states (including the initial state),
+        corresponding titles, and the list of orders issued in each round.
     """
 
     state = initial_state
     states = [state]
     titles = ["Initial State"]
+    orders_history: List[List[Order]] = []
 
     for round_idx in range(1, rounds + 1):
         round_orders: List[Order] = []
@@ -464,11 +540,12 @@ def run_rounds_with_agents(
             agent_orders = agent.issue_orders(state)
             round_orders.extend(agent_orders)
 
+        orders_history.append(list(round_orders))
         state, _ = Adjudicator(state).resolve(round_orders)
         states.append(state)
         titles.append(title_prefix.format(round=round_idx))
 
-    return states, titles
+    return states, titles, orders_history
 
 # ----- Graph utilities & visualization -----
 
@@ -496,6 +573,8 @@ def _power_color(power: Power) -> str:
 
 
 def _power_text_color(color: str) -> str:
+    if not MATPLOTLIB_AVAILABLE or mcolors is None:
+        return "white"
     try:
         rgb = mcolors.to_rgb(color)
     except ValueError:
@@ -505,6 +584,10 @@ def _power_text_color(color: str) -> str:
 
 
 def visualize_state(state: GameState, title: str = "Board State"):
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     # Layout: fixed for stability (spring layout is fine for small maps)
     pos = nx.spring_layout(state.graph, seed=7)
 
@@ -532,6 +615,133 @@ def visualize_state(state: GameState, title: str = "Board State"):
     plt.tight_layout()
     plt.show()
 
+# ----- Cooperative attack scenario (triangle map) -----
+
+
+def _triangle_board() -> Dict[str, Province]:
+    """Create a fully connected three-province map for cooperation demos."""
+
+    adjacency = {
+        "A": {"B", "C"},
+        "B": {"A", "C"},
+        "C": {"A", "B"},
+    }
+    board: Dict[str, Province] = {}
+    for name, neighbors in adjacency.items():
+        board[name] = Province(
+            name=name,
+            neighbors=set(neighbors),
+            is_supply_center=True,
+        )
+    return board
+
+
+def cooperative_attack_initial_state() -> GameState:
+    """Initialise three powers poised around a shared target province."""
+
+    board = _triangle_board()
+    units = {
+        "A": Unit(Power("Aurora"), "A"),
+        "B": Unit(Power("Borealis"), "B"),
+        "C": Unit(Power("Crimson"), "C"),
+    }
+    powers = {u.power for u in units.values()}
+    return GameState(board=board, units=units, powers=powers)
+
+
+def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
+    """Compare outcomes with and without coordinated support."""
+
+    scenarios: Dict[str, Tuple[GameState, Resolution, List[Order]]] = {}
+
+    def run_case(order_builder: Callable[[GameState], List[Order]], label: str) -> None:
+        state = cooperative_attack_initial_state()
+        orders = order_builder(state)
+        next_state, resolution = Adjudicator(state).resolve(orders)
+        scenarios[label] = (next_state, resolution, orders)
+
+    def solo_attack(state: GameState) -> List[Order]:
+        attacker = state.units["A"]
+        ally = state.units["B"]
+        defender = state.units["C"]
+        return [
+            move(attacker, "C"),
+            hold(ally),
+            hold(defender),
+        ]
+
+    def supported_attack(state: GameState) -> List[Order]:
+        attacker = state.units["A"]
+        supporter = state.units["B"]
+        defender = state.units["C"]
+        return [
+            move(attacker, "C"),
+            support_move(supporter, "A", "C"),
+            hold(defender),
+        ]
+
+    run_case(solo_attack, "solo_attack")
+    run_case(supported_attack, "supported_attack")
+
+    return scenarios
+
+
+def _format_orders_with_actions(orders: Iterable[Order]) -> List[str]:
+    """Render orders alongside their human-readable descriptions."""
+
+    order_list = list(orders)
+    if not order_list:
+        return ["  (no orders issued)"]
+
+    order_lines = [f"  * {order}" for order in order_list]
+    descriptions = [describe_order(order) for order in order_list]
+    max_line = max(len(text) for text in order_lines)
+    header_order = "Order"
+    header_action = "Action"
+    formatted: List[str] = []
+    formatted.append(f"  {header_order}".ljust(max_line) + f" | {header_action}")
+    formatted.append(f"{'-' * max_line}-+-{'-' * len(header_action)}")
+    for line, description in zip(order_lines, descriptions):
+        formatted.append(f"{line.ljust(max_line)} | {description}")
+    return formatted
+
+
+def print_two_power_cooperation_report() -> None:
+    """Emit a textual description of the cooperative attack scenario."""
+
+    initial_state = cooperative_attack_initial_state()
+    print("=== Cooperative attack scenario ===")
+    print("Initial unit placement:")
+    for loc in sorted(initial_state.units):
+        unit = initial_state.units[loc]
+        sc_flag = " (SC)" if initial_state.board[loc].is_supply_center else ""
+        print(f"  - {unit.power} unit in {loc}{sc_flag}")
+
+    outcomes = simulate_two_power_cooperation()
+    for label in ("solo_attack", "supported_attack"):
+        next_state, resolution, orders = outcomes[label]
+        print(f"\nScenario: {label.replace('_', ' ').title()}")
+        print("Orders issued:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+        succeeded = sorted(str(o) for o in resolution.succeeded)
+        failed = sorted(str(o) for o in resolution.failed)
+        dislodged = sorted(resolution.dislodged)
+        print("Succeeded orders:")
+        for text in succeeded:
+            print(f"    {text}")
+        print("Failed orders:")
+        for text in failed:
+            print(f"    {text}")
+        print(f"Dislodged provinces: {dislodged if dislodged else 'None'}")
+        occupying = {
+            loc: unit.power for loc, unit in sorted(next_state.units.items())
+        }
+        print("Post-resolution occupants:")
+        for loc, power in occupying.items():
+            print(f"  - {loc}: {power}")
+
+
 # ----- Custom 5x3 mesh map (like your image) & demo -----
 
 def mesh_board_5x3() -> Dict[str, Province]:
@@ -541,19 +751,18 @@ def mesh_board_5x3() -> Dict[str, Province]:
     Mid row: 6, 7, 8, 3, 9
     Bot row: BL, 13, 12, 11, 10
     TL/BL are the unlabeled corners in your image.
-    Supply centers: TL, 0, 8, BL, 10 (corners + center).
     """
     names = [
-        ["TL", "1", "4", "2", "0"],
-        ["6", "7", "8", "3", "9"],
-        ["BL", "13", "12", "11", "10"],
+        ["1", "2", "3", "4", "5"],
+        ["6", "7", "8", "9", "10"],
+        ["11", "12", "13", "14", "15"],
     ]
     # Create provinces
     board: Dict[str, Province] = {}
     for r in range(3):
         for c in range(5):
             name = names[r][c]
-            is_sc = name in {"TL", "0", "8", "BL", "10"}
+            is_sc = name in {"1", "5", "8", "11", "15"}
             board[name] = Province(name=name, is_supply_center=is_sc)
     # Add neighbors (grid + diagonals)
     def in_bounds(rr, cc):
@@ -574,11 +783,11 @@ def mesh_board_5x3() -> Dict[str, Province]:
 def demo_state_mesh() -> GameState:
     board = mesh_board_5x3()
     units = {
-        "TL": Unit(Power("Blue"), "TL"),
-        "0": Unit(Power("Pink"), "0"),
+        "1": Unit(Power("Blue"), "1"),
+        "5": Unit(Power("Pink"), "5"),
         "8": Unit(Power("Red"), "8"),
-        "BL": Unit(Power("Green"), "BL"),
-        "10": Unit(Power("Yellow"), "10"),
+        "11": Unit(Power("Green"), "11"),
+        "15": Unit(Power("Yellow"), "15"),
     }
     powers = {u.power for u in units.values()}
     s = GameState(board=board, units=units, powers=powers)
@@ -588,16 +797,20 @@ def demo_state_mesh() -> GameState:
 def _mesh_positions() -> Dict[str, Tuple[float, float]]:
     grid_pos = {
         # row 0
-        "TL": (0, 2), "1": (1, 2), "4": (2, 2), "2": (3, 2), "0": (4, 2),
+        "1": (0, 2), "2": (1, 2), "3": (2, 2), "4": (3, 2), "5": (4, 2),
         # row 1
-        "6": (0, 1), "7": (1, 1), "8": (2, 1), "3": (3, 1), "9": (4, 1),
+        "6": (0, 1), "7": (1, 1), "8": (2, 1), "9": (3, 1), "10": (4, 1),
         # row 2
-        "BL": (0, 0), "13": (1, 0), "12": (2, 0), "11": (3, 0), "10": (4, 0),
+        "11": (0, 0), "12": (1, 0), "13": (2, 0), "14": (3, 0), "15": (4, 0),
     }
     return {k: (v[0] * 1.2, v[1] * 1.0) for k, v in grid_pos.items()}
 
 
 def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float, float]], title: str) -> None:
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     ax.clear()
     nx.draw_networkx_edges(state.graph, pos, ax=ax)
 
@@ -638,6 +851,10 @@ def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float,
 
 
 def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
     pos = _mesh_positions()
     fig, ax = plt.subplots(figsize=(6, 3.6))
     _draw_mesh_state(ax, state, pos, title)
@@ -651,6 +868,11 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
 
     if titles is None or len(titles) != len(states):
         titles = [f"Round {i}" for i in range(len(states))]
+
+    if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None or Button is None:
+        raise RuntimeError(
+            "networkx and matplotlib are required for visualization utilities."
+        )
 
     pos = _mesh_positions()
     fig, ax = plt.subplots(figsize=(6, 3.6))
@@ -713,7 +935,7 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
     states = [state]
     titles = ["Initial — 5x3 Mesh Map"]
 
-    toward = {"TL": "7", "0": "3", "BL": "13", "10": "11", "8": "8"}
+    toward = {"1": "7", "5": "9", "11": "12", "15": "14", "8": "8"}
 
     for r in range(1, rounds + 1):
         orders: List[Order] = []
@@ -727,6 +949,9 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
             else:
                 orders.append(hold(unit))
 
+        print(f"\nRound {r} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
         state, _ = Adjudicator(state).resolve(orders)
         states.append(state)
         titles.append(f"After Round {r} — 5x3 Mesh Map")
@@ -754,69 +979,75 @@ def demo_run_mesh_with_random_agents(
             rng=random.Random(agent_seed),
         )
 
-    states, titles = run_rounds_with_agents(
+    states, titles, orders_history = run_rounds_with_agents(
         state,
         agents,
         rounds,
         title_prefix="After Round {round} — Random Agents on 5x3 Mesh",
     )
 
-    interactive_visualize_state_mesh(states, titles)
-
-
-def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
-    """Showcase programmable agents on the 5x3 mesh map."""
-
-    state = demo_state_mesh()
-
-    blue_agent = ScriptedAgent(
-        Power("Blue"),
-        {
-            0: {"TL": "7"},
-            1: {"7": "8"},
-            2: {"8": "8"},
-        },
-    )
-    pink_agent = ScriptedAgent(
-        Power("Pink"),
-        {
-            0: {"0": "3"},
-            1: {"3": "8"},
-        },
-    )
-    green_agent = ScriptedAgent(
-        Power("Green"),
-        {
-            0: {"BL": "13"},
-            1: {"13": "8"},
-        },
-    )
-    yellow_agent = ScriptedAgent(
-        Power("Yellow"),
-        {
-            0: {"10": "11"},
-            1: {"11": "8"},
-        },
-    )
-
-    agents: Dict[Power, Agent] = {
-        blue_agent.power: blue_agent,
-        pink_agent.power: pink_agent,
-        green_agent.power: green_agent,
-        yellow_agent.power: yellow_agent,
-    }
-
-    states, titles = run_rounds_with_agents(
-        state,
-        agents,
-        rounds,
-        title_prefix="After Round {round} — Scripted 5x3 Mesh",
-    )
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
 
     interactive_visualize_state_mesh(states, titles)
+
+
+# def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
+#     """Showcase programmable agents on the 5x3 mesh map."""
+
+#     state = demo_state_mesh()
+
+#     blue_agent = ScriptedAgent(
+#         Power("Blue"),
+#         {
+#             0: {"TL": "7"},
+#             1: {"7": "8"},
+#             2: {"8": "8"},
+#         },
+#     )
+#     pink_agent = ScriptedAgent(
+#         Power("Pink"),
+#         {
+#             0: {"0": "3"},
+#             1: {"3": "8"},
+#         },
+#     )
+#     green_agent = ScriptedAgent(
+#         Power("Green"),
+#         {
+#             0: {"BL": "13"},
+#             1: {"13": "8"},
+#         },
+#     )
+#     yellow_agent = ScriptedAgent(
+#         Power("Yellow"),
+#         {
+#             0: {"10": "11"},
+#             1: {"11": "8"},
+#         },
+#     )
+
+#     agents: Dict[Power, Agent] = {
+#         blue_agent.power: blue_agent,
+#         pink_agent.power: pink_agent,
+#         green_agent.power: green_agent,
+#         yellow_agent.power: yellow_agent,
+#     }
+
+#     states, titles, _ = run_rounds_with_agents(
+#         state,
+#         agents,
+#         rounds,
+#         title_prefix="After Round {round} — Scripted 5x3 Mesh",
+#     )
+
+#     interactive_visualize_state_mesh(states, titles)
 
 
 if __name__ == "__main__":
     # still run the tiny triangle tests for sanity, then show mesh demo
     # run_self_test_and_show()
+    print_two_power_cooperation_report()
     demo_run_mesh_with_random_agents()
