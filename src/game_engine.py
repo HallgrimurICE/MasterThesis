@@ -751,19 +751,18 @@ def mesh_board_5x3() -> Dict[str, Province]:
     Mid row: 6, 7, 8, 3, 9
     Bot row: BL, 13, 12, 11, 10
     TL/BL are the unlabeled corners in your image.
-    Supply centers: TL, 0, 8, BL, 10 (corners + center).
     """
     names = [
-        ["TL", "1", "4", "2", "0"],
-        ["6", "7", "8", "3", "9"],
-        ["BL", "13", "12", "11", "10"],
+        ["1", "2", "3", "4", "5"],
+        ["6", "7", "8", "9", "10"],
+        ["11", "12", "13", "14", "15"],
     ]
     # Create provinces
     board: Dict[str, Province] = {}
     for r in range(3):
         for c in range(5):
             name = names[r][c]
-            is_sc = name in {"TL", "0", "8", "BL", "10"}
+            is_sc = name in {"1", "5", "8", "11", "15"}
             board[name] = Province(name=name, is_supply_center=is_sc)
     # Add neighbors (grid + diagonals)
     def in_bounds(rr, cc):
@@ -784,11 +783,11 @@ def mesh_board_5x3() -> Dict[str, Province]:
 def demo_state_mesh() -> GameState:
     board = mesh_board_5x3()
     units = {
-        "TL": Unit(Power("Blue"), "TL"),
-        "0": Unit(Power("Pink"), "0"),
+        "1": Unit(Power("Blue"), "1"),
+        "5": Unit(Power("Pink"), "5"),
         "8": Unit(Power("Red"), "8"),
-        "BL": Unit(Power("Green"), "BL"),
-        "10": Unit(Power("Yellow"), "10"),
+        "11": Unit(Power("Green"), "11"),
+        "15": Unit(Power("Yellow"), "15"),
     }
     powers = {u.power for u in units.values()}
     s = GameState(board=board, units=units, powers=powers)
@@ -798,11 +797,11 @@ def demo_state_mesh() -> GameState:
 def _mesh_positions() -> Dict[str, Tuple[float, float]]:
     grid_pos = {
         # row 0
-        "TL": (0, 2), "1": (1, 2), "4": (2, 2), "2": (3, 2), "0": (4, 2),
+        "1": (0, 2), "2": (1, 2), "3": (2, 2), "4": (3, 2), "5": (4, 2),
         # row 1
-        "6": (0, 1), "7": (1, 1), "8": (2, 1), "3": (3, 1), "9": (4, 1),
+        "6": (0, 1), "7": (1, 1), "8": (2, 1), "9": (3, 1), "10": (4, 1),
         # row 2
-        "BL": (0, 0), "13": (1, 0), "12": (2, 0), "11": (3, 0), "10": (4, 0),
+        "11": (0, 0), "12": (1, 0), "13": (2, 0), "14": (3, 0), "15": (4, 0),
     }
     return {k: (v[0] * 1.2, v[1] * 1.0) for k, v in grid_pos.items()}
 
@@ -936,7 +935,7 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
     states = [state]
     titles = ["Initial — 5x3 Mesh Map"]
 
-    toward = {"TL": "7", "0": "3", "BL": "13", "10": "11", "8": "8"}
+    toward = {"1": "7", "5": "9", "11": "12", "15": "14", "8": "8"}
 
     for r in range(1, rounds + 1):
         orders: List[Order] = []
@@ -995,56 +994,56 @@ def demo_run_mesh_with_random_agents(
     interactive_visualize_state_mesh(states, titles)
 
 
-def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
-    """Showcase programmable agents on the 5x3 mesh map."""
+# def demo_run_mesh_with_scripted_agents(rounds: int = 3) -> None:
+#     """Showcase programmable agents on the 5x3 mesh map."""
 
-    state = demo_state_mesh()
+#     state = demo_state_mesh()
 
-    blue_agent = ScriptedAgent(
-        Power("Blue"),
-        {
-            0: {"TL": "7"},
-            1: {"7": "8"},
-            2: {"8": "8"},
-        },
-    )
-    pink_agent = ScriptedAgent(
-        Power("Pink"),
-        {
-            0: {"0": "3"},
-            1: {"3": "8"},
-        },
-    )
-    green_agent = ScriptedAgent(
-        Power("Green"),
-        {
-            0: {"BL": "13"},
-            1: {"13": "8"},
-        },
-    )
-    yellow_agent = ScriptedAgent(
-        Power("Yellow"),
-        {
-            0: {"10": "11"},
-            1: {"11": "8"},
-        },
-    )
+#     blue_agent = ScriptedAgent(
+#         Power("Blue"),
+#         {
+#             0: {"TL": "7"},
+#             1: {"7": "8"},
+#             2: {"8": "8"},
+#         },
+#     )
+#     pink_agent = ScriptedAgent(
+#         Power("Pink"),
+#         {
+#             0: {"0": "3"},
+#             1: {"3": "8"},
+#         },
+#     )
+#     green_agent = ScriptedAgent(
+#         Power("Green"),
+#         {
+#             0: {"BL": "13"},
+#             1: {"13": "8"},
+#         },
+#     )
+#     yellow_agent = ScriptedAgent(
+#         Power("Yellow"),
+#         {
+#             0: {"10": "11"},
+#             1: {"11": "8"},
+#         },
+#     )
 
-    agents: Dict[Power, Agent] = {
-        blue_agent.power: blue_agent,
-        pink_agent.power: pink_agent,
-        green_agent.power: green_agent,
-        yellow_agent.power: yellow_agent,
-    }
+#     agents: Dict[Power, Agent] = {
+#         blue_agent.power: blue_agent,
+#         pink_agent.power: pink_agent,
+#         green_agent.power: green_agent,
+#         yellow_agent.power: yellow_agent,
+#     }
 
-    states, titles, _ = run_rounds_with_agents(
-        state,
-        agents,
-        rounds,
-        title_prefix="After Round {round} — Scripted 5x3 Mesh",
-    )
+#     states, titles, _ = run_rounds_with_agents(
+#         state,
+#         agents,
+#         rounds,
+#         title_prefix="After Round {round} — Scripted 5x3 Mesh",
+#     )
 
-    interactive_visualize_state_mesh(states, titles)
+#     interactive_visualize_state_mesh(states, titles)
 
 
 if __name__ == "__main__":
