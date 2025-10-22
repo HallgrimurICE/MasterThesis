@@ -230,6 +230,51 @@ class Agent:
             seen_units.add(order.unit.loc)
         return planned
 
+    def plan_order(
+        self,
+        unit: Unit,
+        directive: Directive,
+        state: "GameState",
+    ) -> Order:
+        """Convert a directive into a concrete :class:`Order`.
+
+        Parameters
+        ----------
+        unit:
+            The unit for which the order should be generated.
+        directive:
+            Instruction describing the desired behaviour. See :data:`Directive` for
+            the supported types.
+        state:
+            Current game state, used when validating moves or executing callables.
+        """
+
+        if callable(directive):
+            order = directive(unit, state)
+            if not isinstance(order, Order):
+                raise TypeError(
+                    "Callable directives must return an Order instance."
+                )
+            return order
+
+        if isinstance(directive, Order):
+            return directive
+
+        if directive is None:
+            return hold(unit)
+
+        if isinstance(directive, str):
+            cleaned = directive.strip()
+            if not cleaned:
+                return hold(unit)
+            upper = cleaned.upper()
+            if upper in {"H", "HOLD"}:
+                return hold(unit)
+            if cleaned in state.legal_moves_from(unit.loc):
+                return move(unit, cleaned)
+
+        return hold(unit)
+
     def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
         raise NotImplementedError
 
@@ -263,27 +308,7 @@ class ScriptedAgent(Agent):
                 continue
 
             directive = planned_orders.get(unit.loc)
-            if callable(directive):
-                orders.append(directive(unit, state))
-                continue
-            if isinstance(directive, Order):
-                orders.append(directive)
-                continue
-
-            if directive is None:
-                orders.append(hold(unit))
-                continue
-
-            if isinstance(directive, str):
-                if directive.upper() in {"H", "HOLD"}:
-                    orders.append(hold(unit))
-                    continue
-                if directive in state.legal_moves_from(unit.loc):
-                    orders.append(move(unit, directive))
-                    continue
-
-            # Fallback: illegal or unrecognised directive
-            orders.append(hold(unit))
+            orders.append(self.plan_order(unit, directive, state))
 
         return orders
 
