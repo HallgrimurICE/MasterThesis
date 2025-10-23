@@ -777,6 +777,11 @@ def mesh_board_5x3() -> Dict[str, Province]:
                 if in_bounds(rr, cc):
                     nbrs.add(names[rr][cc])
             board[src] = Province(name=src, neighbors=nbrs, is_supply_center=board[src].is_supply_center)
+    # Extra long-range links requested between select nodes
+    extra_links = [("1", "3"), ("3", "5"), ("11", "13"), ("13", "15")]
+    for u, v in extra_links:
+        board[u].neighbors.add(v)
+        board[v].neighbors.add(u)
     return board
 
 
@@ -812,7 +817,22 @@ def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float,
             "networkx and matplotlib are required for visualization utilities."
         )
     ax.clear()
-    nx.draw_networkx_edges(state.graph, pos, ax=ax)
+    curved_pairs = [("1", "3"), ("3", "5"), ("11", "13"), ("13", "15")]
+    curved_sets = {frozenset(edge) for edge in curved_pairs}
+    straight_edges = [
+        edge for edge in state.graph.edges() if frozenset(edge) not in curved_sets
+    ]
+    nx.draw_networkx_edges(state.graph, pos, ax=ax, edgelist=straight_edges)
+    if curved_pairs:
+        nx.draw_networkx_edges(
+            state.graph,
+            pos,
+            ax=ax,
+            edgelist=curved_pairs,
+            connectionstyle="arc3,rad=0.25",
+            width=2.0,
+            edge_color="#ff4500",
+        )
 
     sc_nodes = [n for n, d in state.graph.nodes(data=True) if d.get('is_supply_center', False)]
     non_sc = [n for n in state.graph.nodes() if n not in sc_nodes]
