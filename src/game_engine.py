@@ -144,6 +144,7 @@ class GameState:
     phase: Phase = Phase.SPRING
     powers: Set[Power] = field(default_factory=set)
     graph: nx.Graph = field(default_factory=nx.Graph)
+    supply_center_control: Dict[str, Optional[Power]] = field(default_factory=dict)
 
     def __post_init__(self):
         # Build/refresh the graph from the board definition
@@ -154,9 +155,16 @@ class GameState:
             for nbr in prov.neighbors:
                 if name != nbr:
                     self.graph.add_edge(name, nbr)
+        self._initialise_supply_center_control()
 
     def copy(self) -> "GameState":
-        s = GameState(board=self.board, units=dict(self.units), phase=self.phase, powers=set(self.powers))
+        s = GameState(
+            board=self.board,
+            units=dict(self.units),
+            phase=self.phase,
+            powers=set(self.powers),
+            supply_center_control=dict(self.supply_center_control),
+        )
         # Graph is derived from board, so it gets rebuilt in __post_init__
         return s
 
@@ -181,6 +189,35 @@ class GameState:
     # Graph-driven legal moves for a unit
     def legal_moves_from(self, province: str) -> List[str]:
         return list(self.graph.neighbors(province))
+
+    def _initialise_supply_center_control(self) -> None:
+        """Ensure every supply center has an explicit controller entry."""
+
+        if not self.supply_center_control:
+            self.supply_center_control = {}
+
+        # Remove any stray non-supply-center entries.
+        for name in list(self.supply_center_control.keys()):
+            province = self.board.get(name)
+            if province is None or not province.is_supply_center:
+                self.supply_center_control.pop(name, None)
+
+        for name, prov in self.board.items():
+            if prov.is_supply_center:
+                self.supply_center_control.setdefault(name, None)
+
+    def update_supply_center_control(self, prev_phase: Phase) -> None:
+        """Update controller assignments if the previous phase was Fall."""
+
+        if prev_phase != Phase.FALL:
+            return
+
+        for loc, prov in self.board.items():
+            if not prov.is_supply_center:
+                continue
+            occupying_unit = self.units.get(loc)
+            if occupying_unit is not None:
+                self.supply_center_control[loc] = occupying_unit.power
 
 # ----- Order helpers -----
 
@@ -493,6 +530,9 @@ class Adjudicator:
         }
         next_state = self.state.copy()
         next_state.units = normalized_units
+        prev_phase = self.state.phase
+        next_state.phase = Phase.FALL if prev_phase == Phase.SPRING else Phase.SPRING
+        next_state.update_supply_center_control(prev_phase=prev_phase)
         return next_state, resolution
 
 # ----- Game runners -----
