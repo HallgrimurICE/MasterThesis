@@ -188,7 +188,10 @@ class GameState:
 
     # Graph-driven legal moves for a unit
     def legal_moves_from(self, province: str) -> List[str]:
-        return list(self.graph.neighbors(province))
+        legal_moves = list(self.graph.neighbors(province))
+        legal_supports = [nbr for nbr in self.graph.neighbors(province) if nbr in self.units]
+        all_legal = legal_moves
+        return all_legal
 
     def _initialise_supply_center_control(self) -> None:
         """Ensure every supply center has an explicit controller entry."""
@@ -343,21 +346,64 @@ class RandomAgent(Agent):
 
     def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
         orders: List[Order] = []
-        for unit in state.units.values():
-            if unit.power != self.power:
+        friendly_units = [
+            unit for unit in state.units.values() if unit.power == self.power
+        ]
+        all_units: List[Unit] = list(state.units.values())
+        legal_moves_map: Dict[str, List[str]] = {
+            unit.loc: state.legal_moves_from(unit.loc) for unit in all_units
+        }
+
+        for unit in friendly_units:
+            legal_moves = legal_moves_map.get(unit.loc, [])
+            support_hold_targets = [
+                nbr
+                for nbr in state.graph.neighbors(unit.loc)
+                if nbr in state.units
+            ]
+            support_move_options: List[Tuple[str, str]] = []
+            for dest in state.graph.neighbors(unit.loc):
+                for other_unit in all_units:
+                    if other_unit.loc == unit.loc:
+                        continue
+                    other_moves = legal_moves_map.get(other_unit.loc, [])
+                    if dest in other_moves:
+                        support_move_options.append((other_unit.loc, dest))
+
+            if (
+                not legal_moves
+                and not support_hold_targets
+                and not support_move_options
+            ):
+                orders.append(hold(unit))
                 continue
 
-            legal_moves = state.legal_moves_from(unit.loc)
-            choose_hold = (
-                not legal_moves
-                or self._rng.random() < self.hold_probability
-            )
-
-            if choose_hold:
+            if self._rng.random() < self.hold_probability:
                 orders.append(hold(unit))
-            else:
+                continue
+
+            action_pool: List[str] = []
+            if legal_moves:
+                action_pool.append("move")
+            if support_hold_targets:
+                action_pool.append("support_hold")
+            if support_move_options:
+                action_pool.append("support_move")
+
+            if not action_pool:
+                orders.append(hold(unit))
+                continue
+
+            action = self._rng.choice(action_pool)
+            if action == "move":
                 destination = self._rng.choice(legal_moves)
                 orders.append(move(unit, destination))
+            elif action == "support_hold":
+                friend_loc = self._rng.choice(support_hold_targets)
+                orders.append(support_hold(unit, friend_loc))
+            else:  # support_move
+                friend_from, friend_to = self._rng.choice(support_move_options)
+                orders.append(support_move(unit, friend_from, friend_to))
 
         return orders
 
@@ -846,6 +892,25 @@ def _mesh_positions() -> Dict[str, Tuple[float, float]]:
     return {k: (v[0] * 1.2, v[1] * 1.0) for k, v in grid_pos.items()}
 
 
+def _positions_for_state(state: GameState) -> Dict[str, Tuple[float, float]]:
+    """Return plotting positions for the provinces in ``state``.
+
+    Uses the fixed mesh layout when possible; otherwise falls back to a spring
+    layout so smaller demo maps (e.g., the triangle) still render.
+    """
+
+    mesh_pos = _mesh_positions()
+    nodes = list(state.graph.nodes())
+    if nodes and all(n in mesh_pos for n in nodes):
+        return {n: mesh_pos[n] for n in nodes}
+    if not NX_AVAILABLE:
+        raise RuntimeError(
+            "networkx is required for automatic layout of non-mesh maps."
+        )
+    layout = nx.spring_layout(state.graph, seed=42)
+    return {node: (float(coord[0]), float(coord[1])) for node, coord in layout.items()}
+
+
 def _draw_mesh_state(ax: plt.Axes, state: GameState, pos: Dict[str, Tuple[float, float]], title: str) -> None:
     if not NX_AVAILABLE or not MATPLOTLIB_AVAILABLE or plt is None:
         raise RuntimeError(
@@ -895,7 +960,7 @@ def visualize_state_mesh(state: GameState, title: str = "5x3 Mesh Map"):
         raise RuntimeError(
             "networkx and matplotlib are required for visualization utilities."
         )
-    pos = _mesh_positions()
+    pos = _positions_for_state(state)
     fig, ax = plt.subplots(figsize=(6, 3.6))
     _draw_mesh_state(ax, state, pos, title)
     plt.tight_layout()
@@ -914,7 +979,7 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
             "networkx and matplotlib are required for visualization utilities."
         )
 
-    pos = _mesh_positions()
+    pos = _positions_for_state(states[0])
     fig, ax = plt.subplots(figsize=(6, 3.6))
     plt.subplots_adjust(bottom=0.25)
 
@@ -1007,7 +1072,8 @@ def demo_run_mesh_with_random_agents(
 ) -> None:
     """Run the 5x3 mesh map using autonomous random agents with visualisation."""
 
-    state = demo_state_mesh()
+    # state = demo_state_mesh()
+    state = cooperative_attack_initial_state()
     base_rng = random.Random(seed)
 
     agents: Dict[Power, Agent] = {}
@@ -1089,5 +1155,11 @@ def demo_run_mesh_with_random_agents(
 if __name__ == "__main__":
     # still run the tiny triangle tests for sanity, then show mesh demo
     # run_self_test_and_show()
-    print_two_power_cooperation_report()
-    demo_run_mesh_with_random_agents()
+    # print_two_power_cooperation_report()
+    # state = demo_state_mesh()
+    # print(state.graph.nodes(data=True))
+    # demo_run_mesh_with_random_agents()
+    # print resolution report
+    demo_run_mesh_with_random_agents(rounds=5, seed=42, hold_probability=0.3)
+
+
