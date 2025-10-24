@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 try:  # pragma: no cover - optional dependency
     import matplotlib.pyplot as plt  # type: ignore
     from matplotlib import colors as mcolors  # type: ignore
-    from matplotlib.widgets import Button  # type: ignore
+    from matplotlib.widgets import Button, Slider  # type: ignore
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:  # pragma: no cover - fallback used when matplotlib missing
@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover - fallback used when matplotlib missing
     plt = None  # type: ignore
     mcolors = None  # type: ignore
     Button = None  # type: ignore
+    Slider = None  # type: ignore
 
 from ..graph import NX_AVAILABLE, nx
 from ..maps import build_graph, mesh_board_5x3
@@ -183,6 +184,22 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
     button_styles["prev"] = (bprev.color, bprev.hovercolor)
     button_styles["next"] = (bnext.color, bnext.hovercolor)
 
+    slider_ax = plt.axes([0.15, 0.01, 0.7, 0.03])
+    slider = Slider(
+        slider_ax,
+        "Round",
+        0,
+        len(states) - 1,
+        valinit=0,
+        valstep=1,
+        color="#cccccc",
+    )
+    slider_ax.xaxis.set_ticks_position("bottom")
+    slider_ax.yaxis.set_visible(False)
+    slider_ax.set_facecolor("#f2f2f2")
+
+    slider_updating = {"active": False}
+
     def _set_button_enabled(button: Button, *, enabled: bool, base_color: str, base_hover: str) -> None:
         button.eventson = enabled
         face_color = base_color if enabled else "#d3d3d3"
@@ -200,10 +217,14 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
         _set_button_enabled(bprev, enabled=not at_start, base_color=base_prev, base_hover=base_prev_hover)
         _set_button_enabled(bnext, enabled=not at_end, base_color=base_next, base_hover=base_next_hover)
 
-    def draw_current() -> None:
+    def draw_current(*, update_slider: bool = True) -> None:
         idx = state_index["value"]
         _draw_mesh_state(ax, states[idx], pos, titles[idx])
         update_buttons()
+        if update_slider and not slider_updating["active"]:
+            slider_updating["active"] = True
+            slider.set_val(idx)
+            slider_updating["active"] = False
         fig.canvas.draw_idle()
 
     def go_next(_event) -> None:
@@ -218,6 +239,18 @@ def interactive_visualize_state_mesh(states: List[GameState], titles: Optional[L
 
     bprev.on_clicked(go_prev)
     bnext.on_clicked(go_next)
+
+    def slider_changed(val: float) -> None:
+        if slider_updating["active"]:
+            return
+        idx = int(round(val))
+        idx = max(0, min(len(states) - 1, idx))
+        if idx == state_index["value"]:
+            return
+        state_index["value"] = idx
+        draw_current(update_slider=False)
+
+    slider.on_changed(slider_changed)
 
     draw_current()
     plt.show()
