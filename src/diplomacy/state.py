@@ -19,6 +19,8 @@ class GameState:
     retreat_forbidden: Dict[str, Set[str]] = field(default_factory=dict)
     contested_provinces: Set[str] = field(default_factory=set)
     supply_update_due: bool = False
+    winner: Optional[Power] = None
+    pending_disbands: Dict[Power, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Build/refresh the graph from the board definition
@@ -42,6 +44,8 @@ class GameState:
             retreat_forbidden={k: set(v) for k, v in self.retreat_forbidden.items()},
             contested_provinces=set(self.contested_provinces),
             supply_update_due=self.supply_update_due,
+            winner=self.winner,
+            pending_disbands=dict(self.pending_disbands),
         )
         return s
 
@@ -110,7 +114,9 @@ class GameState:
 
         for name, prov in self.board.items():
             if prov.is_supply_center:
-                self.supply_center_control.setdefault(name, None)
+                if name not in self.supply_center_control:
+                    occupant = self.units.get(name)
+                    self.supply_center_control[name] = occupant.power if occupant else None
 
     def update_supply_center_control(self, prev_phase: Phase) -> None:
         """Update controller assignments if the previous phase was Fall."""
@@ -124,6 +130,77 @@ class GameState:
             occupying_unit = self.units.get(loc)
             if occupying_unit is not None:
                 self.supply_center_control[loc] = occupying_unit.power
+
+    def update_pending_disbands(self) -> None:
+        """Compute how many units each power must remove due to supply shortages."""
+
+        counts: Dict[Power, int] = {}
+        for controller in self.supply_center_control.values():
+            if controller is None:
+                continue
+            counts[controller] = counts.get(controller, 0) + 1
+
+        unit_counts: Dict[Power, int] = {}
+        for unit in self.units.values():
+            unit_counts[unit.power] = unit_counts.get(unit.power, 0) + 1
+
+        disbands: Dict[Power, int] = {}
+        for power, units_owned in unit_counts.items():
+            allowed = counts.get(power, 0)
+            deficit = units_owned - allowed
+            if deficit > 0:
+                disbands[power] = deficit
+
+        self.pending_disbands = disbands
+
+    def auto_disband(self) -> Dict[Power, List[str]]:
+        """Automatically remove units to satisfy pending disband requirements.
+
+        Units not on supply centers are removed first (alphabetically by province),
+        followed by those on supply centers if still needed.
+        """
+
+        removed: Dict[Power, List[str]] = {}
+        for power, count in list(self.pending_disbands.items()):
+            if count <= 0:
+                continue
+            provinces = [loc for loc, unit in self.units.items() if unit.power == power]
+            if not provinces:
+                continue
+            non_sc = sorted(
+                [loc for loc in provinces if not self.board[loc].is_supply_center]
+            )
+            sc = sorted(
+                [loc for loc in provinces if self.board[loc].is_supply_center]
+            )
+            removal_order = non_sc + sc
+            to_remove = removal_order[:count]
+            if not to_remove:
+                continue
+            for loc in to_remove:
+                self.units.pop(loc, None)
+            removed[power] = to_remove
+        if removed:
+            self.pending_disbands = {}
+        return removed
+
+    def total_supply_centers(self) -> int:
+        return sum(1 for prov in self.board.values() if prov.is_supply_center)
+
+    def determine_winner(self) -> Optional[Power]:
+        total = self.total_supply_centers()
+        if total == 0:
+            return None
+        majority = total // 2 + 1
+        counts: Dict[Power, int] = {}
+        for controller in self.supply_center_control.values():
+            if controller is None:
+                continue
+            counts[controller] = counts.get(controller, 0) + 1
+        for power, count in counts.items():
+            if count >= majority:
+                return power
+        return None
 
 
 __all__ = ["GameState"]

@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from .orders import hold
 from .state import GameState
-from .types import Order, OrderType, Phase, Unit
+from .types import Order, OrderType, Phase, Power, Unit
 
 
 @dataclass
@@ -17,6 +17,8 @@ class Resolution:
     dislodged_by: Dict[str, Set[str]] = field(default_factory=dict)
     contested: Set[str] = field(default_factory=set)
     disbanded_retreats: Set[str] = field(default_factory=set)
+    winner: Optional[Power] = None
+    auto_disbands: Dict[Power, List[str]] = field(default_factory=dict)
 
 
 class Adjudicator:
@@ -210,6 +212,13 @@ class Adjudicator:
             if next_state.supply_update_due:
                 next_state.update_supply_center_control(prev_phase=Phase.FALL)
                 next_state.supply_update_due = False
+                winner = next_state.determine_winner()
+                next_state.winner = winner
+                resolution.winner = winner
+                next_state.update_pending_disbands()
+                disbanded = next_state.auto_disband()
+                if disbanded:
+                    resolution.auto_disbands = disbanded
 
         return next_state, resolution
 
@@ -283,6 +292,13 @@ class Adjudicator:
             if self.state.supply_update_due:
                 next_state.update_supply_center_control(prev_phase=Phase.FALL)
                 next_state.supply_update_due = False
+                winner = next_state.determine_winner()
+                next_state.winner = winner
+                resolution.winner = winner
+                next_state.update_pending_disbands()
+                disbanded = next_state.auto_disband()
+                if disbanded:
+                    resolution.auto_disbands = disbanded
             else:
                 next_state.supply_update_due = False
 

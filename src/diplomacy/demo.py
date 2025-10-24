@@ -130,7 +130,7 @@ def demo_run_mesh_with_random_orders(rounds: int = 3):
 
 
 def demo_run_mesh_with_random_agents(
-    rounds: int = 5,
+    rounds: int = 500,
     *,
     seed: Optional[int] = None,
     hold_probability: float = 0.2,
@@ -152,12 +152,19 @@ def demo_run_mesh_with_random_agents(
         agents,
         rounds,
         title_prefix="After Round {round} – Random Agents on 5x3 Mesh",
+        stop_on_winner=True,
     )
 
     for round_index, orders in enumerate(orders_history, start=1):
         print(f"\nRound {round_index} orders:")
         for line in _format_orders_with_actions(orders):
             print(line)
+
+    winner = states[-1].winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    else:
+        print("\nNo winner within the configured round limit.")
 
     interactive_visualize_state_mesh(states, titles)
 

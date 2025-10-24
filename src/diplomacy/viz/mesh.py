@@ -111,12 +111,24 @@ def _draw_mesh_state(ax, state: GameState, pos: Dict[str, Tuple[float, float]], 
         node_size=1200,
         ax=ax,
     )
+
+    sc_colors = []
+    sc_edge_colors = []
+    for node in sc_nodes:
+        controller = state.supply_center_control.get(node)
+        if controller is not None:
+            sc_colors.append(_power_color(controller))
+            sc_edge_colors.append("black")
+        else:
+            sc_colors.append("white")
+            sc_edge_colors.append("red")
+
     nx.draw_networkx_nodes(
         state.graph,
         pos,
         nodelist=sc_nodes,
-        node_color="white",
-        edgecolors="red",
+        node_color=sc_colors,
+        edgecolors=sc_edge_colors,
         linewidths=1,
         node_size=1200,
         ax=ax,
