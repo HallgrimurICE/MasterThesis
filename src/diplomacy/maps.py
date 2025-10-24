@@ -24,9 +24,20 @@ def square_board() -> Dict[str, Province]:
         "C": {"A", "B", "D"},
         "D": {"A", "B", "C"},
     }
+    home_lookup = {
+        "A": Power("Aurora"),
+        "B": Power("Borealis"),
+        "C": Power("Crimson"),
+        "D": None,
+    }
     board: Dict[str, Province] = {}
     for name, neighbors in adjacency.items():
-        board[name] = Province(name=name, neighbors=set(neighbors), is_supply_center=True)
+        board[name] = Province(
+            name=name,
+            neighbors=set(neighbors),
+            is_supply_center=True,
+            home_power=home_lookup.get(name),
+        )
     return board
 
 
@@ -47,12 +58,24 @@ def mesh_board_5x3() -> Dict[str, Province]:
         ["6", "7", "8", "9", "10"],
         ["11", "12", "13", "14", "15"],
     ]
+    home_lookup = {
+        "1": Power("Blue"),
+        "5": Power("Pink"),
+        "8": Power("Red"),
+        "11": Power("Green"),
+        "15": Power("Yellow"),
+    }
     board: Dict[str, Province] = {}
     for r in range(3):
         for c in range(5):
             name = names[r][c]
             is_sc = name in {"1", "5", "8", "11", "15"}
-            board[name] = Province(name=name, neighbors=set(), is_supply_center=is_sc)
+            board[name] = Province(
+                name=name,
+                neighbors=set(),
+                is_supply_center=is_sc,
+                home_power=home_lookup.get(name),
+            )
 
     def in_bounds(rr: int, cc: int) -> bool:
         return 0 <= rr < 3 and 0 <= cc < 5
@@ -74,10 +97,12 @@ def mesh_board_5x3() -> Dict[str, Province]:
                 rr, cc = r + dr, c + dc
                 if in_bounds(rr, cc):
                     nbrs.add(names[rr][cc])
+            current = board[src]
             board[src] = Province(
                 name=src,
                 neighbors=nbrs,
-                is_supply_center=board[src].is_supply_center,
+                is_supply_center=current.is_supply_center,
+                home_power=current.home_power,
             )
     return board
 

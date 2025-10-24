@@ -21,6 +21,7 @@ class GameState:
     supply_update_due: bool = False
     winner: Optional[Power] = None
     pending_disbands: Dict[Power, int] = field(default_factory=dict)
+    pending_builds: Dict[Power, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Build/refresh the graph from the board definition
@@ -46,6 +47,7 @@ class GameState:
             supply_update_due=self.supply_update_due,
             winner=self.winner,
             pending_disbands=dict(self.pending_disbands),
+            pending_builds=dict(self.pending_builds),
         )
         return s
 
@@ -152,6 +154,8 @@ class GameState:
                 disbands[power] = deficit
 
         self.pending_disbands = disbands
+        if disbands:
+            self.pending_builds.clear()
 
     def auto_disband(self) -> Dict[Power, List[str]]:
         """Automatically remove units to satisfy pending disband requirements.
@@ -183,6 +187,58 @@ class GameState:
         if removed:
             self.pending_disbands = {}
         return removed
+
+    def update_pending_builds(self) -> None:
+        """Determine build opportunities after disbands have been resolved."""
+
+        if self.pending_disbands:
+            self.pending_builds = {}
+            return
+
+        supply_counts: Dict[Power, int] = {}
+        for controller in self.supply_center_control.values():
+            if controller is None:
+                continue
+            supply_counts[controller] = supply_counts.get(controller, 0) + 1
+
+        unit_counts: Dict[Power, int] = {}
+        for unit in self.units.values():
+            unit_counts[unit.power] = unit_counts.get(unit.power, 0) + 1
+
+        builds: Dict[Power, int] = {}
+        for power, supply_total in supply_counts.items():
+            diff = supply_total - unit_counts.get(power, 0)
+            if diff > 0:
+                builds[power] = diff
+
+        self.pending_builds = builds
+
+    def auto_build(self) -> Dict[Power, List[str]]:
+        """Automatically build units at eligible home supply centers."""
+
+        built: Dict[Power, List[str]] = {}
+        for power, count in list(self.pending_builds.items()):
+            if count <= 0:
+                continue
+            candidates = [
+                loc
+                for loc, controller in self.supply_center_control.items()
+                if controller == power
+                and self.board[loc].home_power == power
+                and loc not in self.units
+            ]
+            if not candidates:
+                continue
+            candidates.sort()
+            selection = candidates[:count]
+            if not selection:
+                continue
+            for loc in selection:
+                self.units[loc] = Unit(power, loc)
+            built[power] = selection
+        if built:
+            self.pending_builds = {}
+        return built
 
     def total_supply_centers(self) -> int:
         return sum(1 for prov in self.board.values() if prov.is_supply_center)

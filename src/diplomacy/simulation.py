@@ -42,6 +42,12 @@ def run_rounds_with_agents(
                     for power, provinces in resolution.auto_disbands.items()
                 )
                 title += f" [Disbands: {summary}]"
+            if resolution.auto_builds:
+                summary = ", ".join(
+                    f"{power}: {', '.join(sorted(provinces))}"
+                    for power, provinces in resolution.auto_builds.items()
+                )
+                title += f" [Builds: {summary}]"
             titles.append(title)
             orders_history.append(retreat_orders)
             if stop_on_winner and resolution.winner is not None:
@@ -68,6 +74,12 @@ def run_rounds_with_agents(
                 for power, provinces in resolution.auto_disbands.items()
             )
             title += f" [Disbands: {summary}]"
+        if resolution.auto_builds:
+            summary = ", ".join(
+                f"{power}: {', '.join(sorted(provinces))}"
+                for power, provinces in resolution.auto_builds.items()
+            )
+            title += f" [Builds: {summary}]"
         titles.append(title)
         if stop_on_winner and resolution.winner is not None:
             break

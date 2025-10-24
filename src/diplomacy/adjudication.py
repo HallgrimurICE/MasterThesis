@@ -19,6 +19,7 @@ class Resolution:
     disbanded_retreats: Set[str] = field(default_factory=set)
     winner: Optional[Power] = None
     auto_disbands: Dict[Power, List[str]] = field(default_factory=dict)
+    auto_builds: Dict[Power, List[str]] = field(default_factory=dict)
 
 
 class Adjudicator:
@@ -219,6 +220,10 @@ class Adjudicator:
                 disbanded = next_state.auto_disband()
                 if disbanded:
                     resolution.auto_disbands = disbanded
+                next_state.update_pending_builds()
+                built = next_state.auto_build()
+                if built:
+                    resolution.auto_builds = built
 
         return next_state, resolution
 
@@ -299,6 +304,10 @@ class Adjudicator:
                 disbanded = next_state.auto_disband()
                 if disbanded:
                     resolution.auto_disbands = disbanded
+                next_state.update_pending_builds()
+                built = next_state.auto_build()
+                if built:
+                    resolution.auto_builds = built
             else:
                 next_state.supply_update_due = False
 

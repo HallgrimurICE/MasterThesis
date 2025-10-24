@@ -14,6 +14,7 @@ class Province:
     name: str
     neighbors: set[str]
     is_supply_center: bool = False
+    home_power: Optional[Power] = None
 
 
 class Phase(Enum):
