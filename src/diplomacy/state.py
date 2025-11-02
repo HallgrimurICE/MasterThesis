@@ -4,7 +4,15 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from .graph import nx
-from .types import OrderType, Phase, Power, Province, Unit
+from .types import (
+    OrderType,
+    Phase,
+    Power,
+    Province,
+    ProvinceType,
+    Unit,
+    UnitType,
+)
 
 
 @dataclass
@@ -27,7 +35,11 @@ class GameState:
         # Build/refresh the graph from the board definition
         self.graph = nx.Graph()  # type: ignore[assignment]
         for name, prov in self.board.items():
-            self.graph.add_node(name, is_supply_center=prov.is_supply_center)
+            self.graph.add_node(
+                name,
+                is_supply_center=prov.is_supply_center,
+                province_type=prov.province_type,
+            )
         for name, prov in self.board.items():
             for nbr in prov.neighbors:
                 if name != nbr:
@@ -79,7 +91,17 @@ class GameState:
         return cnt
 
     def legal_moves_from(self, province: str) -> List[str]:
-        return list(self.graph.neighbors(province))
+        unit = self.units.get(province)
+        if unit is None:
+            return []
+        legal: List[str] = []
+        for neighbor in self.graph.neighbors(province):
+            destination = self.board.get(neighbor)
+            if destination is None:
+                continue
+            if self._unit_can_enter(unit.unit_type, destination.province_type):
+                legal.append(neighbor)
+        return legal
 
     def legal_retreats_from(self, province: str) -> List[str]:
         """Return admissible retreat destinations for the dislodged unit at ``province``."""
@@ -91,6 +113,7 @@ class GameState:
         forbidden = set(self.retreat_forbidden.get(province, set()))
         contested = self.contested_provinces
 
+        unit = self.pending_retreats[province]
         legal: List[str] = []
         for neighbor in self.graph.neighbors(province):
             if neighbor in occupied:
@@ -99,8 +122,21 @@ class GameState:
                 continue
             if neighbor in contested:
                 continue
+            destination = self.board.get(neighbor)
+            if destination is None:
+                continue
+            if not self._unit_can_enter(unit.unit_type, destination.province_type):
+                continue
             legal.append(neighbor)
         return legal
+
+    @staticmethod
+    def _unit_can_enter(unit_type: UnitType, province_type: ProvinceType) -> bool:
+        if unit_type == UnitType.ARMY:
+            return province_type in {ProvinceType.LAND, ProvinceType.COAST}
+        if unit_type == UnitType.FLEET:
+            return province_type in {ProvinceType.COAST, ProvinceType.SEA}
+        return False
 
     def _initialise_supply_center_control(self) -> None:
         """Ensure every supply center has an explicit controller entry."""
@@ -234,7 +270,7 @@ class GameState:
             if not selection:
                 continue
             for loc in selection:
-                self.units[loc] = Unit(power, loc)
+                self.units[loc] = Unit(power, loc, UnitType.ARMY)
             built[power] = selection
         if built:
             self.pending_builds = {}

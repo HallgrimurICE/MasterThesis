@@ -77,7 +77,7 @@ class Adjudicator:
                 hold_strength[s.support_unit_loc] = hold_strength.get(s.support_unit_loc, 1) + 1
 
         for o in orders:
-            if o.type == OrderType.MOVE and o.target in self.state.graph[o.unit.loc]:
+            if o.type == OrderType.MOVE and o.target in self.state.legal_moves_from(o.unit.loc):
                 attack_strength[(o.unit.loc, o.target)] = 1
         for s in valid_supports:
             if s.support_target is not None:
@@ -189,13 +189,13 @@ class Adjudicator:
                 resolution.failed.add(o)
 
         normalized_units: Dict[str, Unit] = {
-            loc: Unit(unit.power, loc) for loc, unit in new_units.items()
+            loc: Unit(unit.power, loc, unit.unit_type) for loc, unit in new_units.items()
         }
         next_state = self.state.copy()
         next_state.units = normalized_units
         prev_phase = self.state.phase
         next_state.pending_retreats = {
-            loc: Unit(unit.power, loc) for loc, unit in dislodged_units.items()
+            loc: Unit(unit.power, loc, unit.unit_type) for loc, unit in dislodged_units.items()
         }
         next_state.retreat_forbidden = {
             loc: set(origins) for loc, origins in dislodged_by.items()
@@ -282,7 +282,7 @@ class Adjudicator:
             order = competing_orders[0]
             resolution.succeeded.add(order)
             unit = pending[order.unit.loc]
-            next_state.units[dest] = Unit(unit.power, dest)
+            next_state.units[dest] = Unit(unit.power, dest, unit.unit_type)
             print(f"[Retreat] {unit.power} unit retreats from {order.unit.loc} to {dest}.")
 
         next_state.pending_retreats = {}

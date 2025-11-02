@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - fallback used when matplotlib missing
 from ..graph import NX_AVAILABLE, nx
 from ..maps import build_graph, mesh_board_5x3
 from ..state import GameState
-from ..types import Power
+from ..types import Power, ProvinceType
 
 
 POWER_COLORS: Dict[str, str] = {
@@ -27,6 +27,12 @@ POWER_COLORS: Dict[str, str] = {
     "Red": "#d62728",
     "Green": "#2ca02c",
     "Yellow": "#ffbf00",
+    "Austria": "#d62728",
+    "Turkey": "#ffbf00",
+    "England": "#2f6bdc",
+    "Russia": "#ff69b4",
+    "Italy": "#27ae60",
+    "France": "#3498db",
 }
 
 
@@ -102,27 +108,40 @@ def _draw_mesh_state(ax, state: GameState, pos: Dict[str, Tuple[float, float]], 
 
     sc_nodes = [n for n, d in state.graph.nodes(data=True) if d.get("is_supply_center", False)]
     non_sc = [n for n in state.graph.nodes() if n not in sc_nodes]
+    sea_nodes = [
+        n for n, d in state.graph.nodes(data=True) if d.get("province_type") == ProvinceType.SEA
+    ]
     nx.draw_networkx_nodes(
         state.graph,
         pos,
-        nodelist=non_sc,
+        nodelist=[n for n in non_sc if n not in sea_nodes],
         node_color="white",
         edgecolors="black",
         linewidths=1,
         node_size=1200,
         ax=ax,
     )
+    nx.draw_networkx_nodes(
+        state.graph,
+        pos,
+        nodelist=sea_nodes,
+        node_color="#a6cee3",
+        edgecolors="black",
+        linewidths=1,
+        node_size=1200,
+        ax=ax,
+    )
 
-    sc_colors = []
-    sc_edge_colors = []
+    sc_colors: List[str] = []
+    sc_edge_colors: List[str] = []
     for node in sc_nodes:
         controller = state.supply_center_control.get(node)
         if controller is not None:
             sc_colors.append(_power_color(controller))
             sc_edge_colors.append("black")
         else:
-            sc_colors.append("white")
-            sc_edge_colors.append("red")
+            sc_colors.append("#f5f5f5")
+            sc_edge_colors.append("black")
 
     nx.draw_networkx_nodes(
         state.graph,
@@ -134,15 +153,31 @@ def _draw_mesh_state(ax, state: GameState, pos: Dict[str, Tuple[float, float]], 
         node_size=1200,
         ax=ax,
     )
-    nx.draw_networkx_labels(state.graph, pos, font_size=9, ax=ax)
+
+    # draw supply centers as inner markers
+    for node in sc_nodes:
+        x, y = pos[node]
+        ax.scatter(
+            [x],
+            [y],
+            s=170,
+            c="#ffffff",
+            zorder=9,
+            edgecolors="red",
+            linewidths=1.2,
+            marker="o",
+        )
+    label_artists = nx.draw_networkx_labels(state.graph, pos, font_size=9, ax=ax)
+    for text in label_artists.values():
+        text.set_zorder(12)
 
     for loc, unit in state.units.items():
         x, y = pos[loc]
         color = _power_color(unit.power)
         text_color = _power_text_color(color)
-        ax.scatter([x], [y], s=350, c=color, zorder=10, edgecolors="black", linewidths=1, marker="o")
+        marker = "^" if unit.unit_type.name == "FLEET" else "o"
+        ax.scatter([x], [y], s=350, c=color, zorder=10, edgecolors="black", linewidths=1, marker=marker)
         ax.text(x, y, f"{unit.power[0]}", ha="center", va="center", fontsize=10, color=text_color, zorder=11)
-        ax.text(x, y + 0.18, f"{unit.power}", ha="center", va="center", fontsize=9)
 
     ax.set_title(title)
     ax.axis("off")

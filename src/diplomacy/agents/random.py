@@ -99,7 +99,7 @@ class RandomAgent(Agent):
             if not legal:
                 continue
             destination = self._rng.choice(legal)
-            unit = Unit(self.power, origin)
+            unit = Unit(self.power, origin, pending_unit.unit_type)
             orders.append(retreat(unit, destination))
         return orders
 

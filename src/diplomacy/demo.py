@@ -5,12 +5,17 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from .adjudication import Adjudicator, Resolution
 from .agents import Agent, RandomAgent
-from .maps import cooperative_attack_initial_state, demo_state_mesh
+from .maps import (
+    cooperative_attack_initial_state,
+    demo_state_mesh,
+    fleet_coast_demo_state,
+    standard_initial_state,
+)
 from .orders import hold, move, support_hold, support_move
 from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, describe_order
-from .viz.mesh import interactive_visualize_state_mesh
+from .viz.mesh import interactive_visualize_state_mesh, visualize_state
 
 
 def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
@@ -46,6 +51,41 @@ def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, L
 
     run_case(solo_attack, "solo_attack")
     run_case(supported_attack, "supported_attack")
+
+    return scenarios
+
+
+def simulate_fleet_coast_movements() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
+    """Demonstrate movement validation for armies vs fleets on mixed terrain."""
+
+    scenarios: Dict[str, Tuple[GameState, Resolution, List[Order]]] = {}
+
+    def run_case(order_builder: Callable[[GameState], List[Order]], label: str) -> None:
+        state = fleet_coast_demo_state()
+        orders = order_builder(state)
+        next_state, resolution = Adjudicator(state).resolve(orders)
+        scenarios[label] = (next_state, resolution, orders)
+
+    def illegal_orders(state: GameState) -> List[Order]:
+        units = state.units
+        return [
+            move(units["Highlands"], "AzureSea"),  # army attempting to enter sea
+            move(units["AlbionBay"], "Highlands"),  # fleet attempting to enter land
+            move(units["RedKeep"], "AzureSea"),  # army attempting to sail
+            move(units["OpenOcean"], "RedKeep"),  # fleet attempting to landlocked province
+        ]
+
+    def terrain_compliant_orders(state: GameState) -> List[Order]:
+        units = state.units
+        return [
+            move(units["Highlands"], "Cliffhaven"),
+            move(units["AlbionBay"], "AzureSea"),
+            hold(units["RedKeep"]),
+            hold(units["OpenOcean"]),
+        ]
+
+    run_case(illegal_orders, "illegal_orders")
+    run_case(terrain_compliant_orders, "terrain_compliant_orders")
 
     return scenarios
 
@@ -98,6 +138,139 @@ def print_two_power_cooperation_report() -> None:
         print("Post-resolution occupants:")
         for loc, power in occupying.items():
             print(f"  - {loc}: {power}")
+
+
+def print_fleet_coast_demo_report() -> None:
+    initial_state = fleet_coast_demo_state()
+    print("=== Fleet and Coast Movement Scenario ===")
+    print("Initial terrain and occupants:")
+    for loc in sorted(initial_state.board):
+        province = initial_state.board[loc]
+        unit = initial_state.units.get(loc)
+        terrain = province.province_type.name.title()
+        sc_flag = " (SC)" if province.is_supply_center else ""
+        if unit:
+            unit_desc = f"{unit.power} {unit.unit_type.name.title()}"
+        else:
+            unit_desc = "Unoccupied"
+        print(f"  - {loc}: {terrain}{sc_flag} -> {unit_desc}")
+
+    print("\nLegal moves from initial state:")
+    for loc, unit in sorted(initial_state.units.items()):
+        moves = sorted(initial_state.legal_moves_from(loc))
+        move_text = ", ".join(moves) if moves else "(none)"
+        print(f"  * {unit.power} {unit.unit_type.name.title()} in {loc}: {move_text}")
+
+    outcomes = simulate_fleet_coast_movements()
+    for label in ("illegal_orders", "terrain_compliant_orders"):
+        next_state, resolution, orders = outcomes[label]
+        print(f"\nScenario: {label.replace('_', ' ').title()}")
+        print("Orders issued:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+        print("Succeeded orders:")
+        for text in sorted(str(o) for o in resolution.succeeded):
+            print(f"    {text}")
+        print("Failed orders:")
+        for text in sorted(str(o) for o in resolution.failed):
+            print(f"    {text}")
+        print("Post-resolution occupants:")
+        for loc, unit in sorted(next_state.units.items()):
+            print(f"  - {loc}: {unit.power} {unit.unit_type.name.title()}")
+
+
+def print_standard_board_demo() -> None:
+    """Quick inspection helper for the emerging standard Diplomacy board."""
+
+    state = standard_initial_state()
+    print("=== Standard Map (Work in Progress) ===")
+    print(f"Provinces defined: {len(state.board)}")
+    print(f"Units placed: {len(state.units)}")
+    for name in sorted(state.board):
+        province = state.board[name]
+        terrain = province.province_type.name.title()
+        sc_flag = "Yes" if province.is_supply_center else "No"
+        home = str(province.home_power) if province.home_power is not None else "-"
+        neighbors = ", ".join(sorted(province.neighbors)) if province.neighbors else "(none yet)"
+        print(f"\n{name}")
+        print(f"  Terrain: {terrain}")
+        print(f"  Supply Center: {sc_flag}")
+        print(f"  Home Power: {home}")
+        print(f"  Neighbors: {neighbors}")
+
+    if not state.units:
+        print("\n(No starting units added yet.)")
+
+
+def visualize_fleet_coast_demo() -> None:
+    """Interactive visualization for the fleet/coast terrain demo."""
+
+    scenarios = simulate_fleet_coast_movements()
+    initial_state = fleet_coast_demo_state()
+
+    states: List[GameState] = [initial_state]
+    titles: List[str] = ["Initial Fleet/Coast Demo Map"]
+
+    illegal_state, _, _ = scenarios["illegal_orders"]
+    states.append(illegal_state)
+    titles.append("After Illegal Orders (all rejected)")
+
+    legal_state, _, _ = scenarios["terrain_compliant_orders"]
+    states.append(legal_state)
+    titles.append("After Terrain-Compliant Orders")
+
+    interactive_visualize_state_mesh(states, titles)
+
+
+def visualize_standard_board() -> None:
+    """Visualize the current standard Diplomacy map (requires matplotlib/networkx)."""
+
+    state = standard_initial_state()
+    visualize_state(state, title="Standard Diplomacy Map (Work in Progress)")
+
+
+def interactive_visualize_standard_board() -> None:
+    """Interactive view of the current standard Diplomacy map."""
+
+    state = standard_initial_state()
+    interactive_visualize_state_mesh(
+        [state],
+        ["Standard Diplomacy Map (Work in Progress)"],
+    )
+
+
+def run_standard_board_with_random_england(
+    rounds: int = 5,
+    *,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+) -> None:
+    """Run a short simulation with England driven by a random agent on the standard board."""
+
+    state = standard_initial_state()
+    agent_seed = random.Random(seed).randint(0, 2**32 - 1)
+    england_agent = RandomAgent(
+        Power("England"),
+        hold_probability=hold_probability,
+        rng=random.Random(agent_seed),
+    )
+
+    agents: Dict[Power, Agent] = {Power("England"): england_agent}
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Standard Board After Round {round}",
+        stop_on_winner=False,
+    )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders (England):")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+
+    interactive_visualize_state_mesh(states, titles)
 
 
 def demo_run_mesh_with_random_orders(rounds: int = 3):
@@ -171,12 +344,19 @@ def demo_run_mesh_with_random_agents(
 
 __all__ = [
     "simulate_two_power_cooperation",
+    "simulate_fleet_coast_movements",
     "print_two_power_cooperation_report",
+    "print_fleet_coast_demo_report",
+    "print_standard_board_demo",
+    "visualize_fleet_coast_demo",
+    "visualize_standard_board",
+    "interactive_visualize_standard_board",
+    "run_standard_board_with_random_england",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
 ]
 
 
 if __name__ == "__main__":
-    print("Running demo_run_mesh_with_random_agents() with default parameters...")
-    demo_run_mesh_with_random_agents()
+    print("Running standard board with England as a random agent for 5 rounds...")
+    run_standard_board_with_random_england(rounds=5)

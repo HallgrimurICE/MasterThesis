@@ -9,12 +9,19 @@ class Power(str):
     """Identifier for a player/power."""
 
 
+class ProvinceType(Enum):
+    LAND = auto()
+    COAST = auto()
+    SEA = auto()
+
+
 @dataclass(frozen=True)
 class Province:
     name: str
     neighbors: set[str]
     is_supply_center: bool = False
     home_power: Optional[Power] = None
+    province_type: ProvinceType = ProvinceType.LAND
 
 
 class Phase(Enum):
@@ -31,10 +38,16 @@ class OrderType(Enum):
     RETREAT = auto()
 
 
+class UnitType(Enum):
+    ARMY = auto()
+    FLEET = auto()
+
+
 @dataclass(frozen=True)
 class Unit:
     power: Power
     loc: str  # province name
+    unit_type: UnitType = UnitType.ARMY
 
 
 @dataclass(frozen=True)
@@ -86,8 +99,10 @@ def describe_order(order: Order) -> str:
 __all__ = [
     "Power",
     "Province",
+    "ProvinceType",
     "Phase",
     "OrderType",
+    "UnitType",
     "Unit",
     "Order",
     "describe_order",

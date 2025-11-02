@@ -68,7 +68,7 @@ class ScriptedAgent(Agent):
                 continue
 
             directive = planned_orders.get(origin)
-            unit = Unit(self.power, origin)
+            unit = Unit(self.power, origin, pending_unit.unit_type)
 
             if callable(directive):
                 orders.append(directive(unit, state))
