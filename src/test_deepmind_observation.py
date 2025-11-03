@@ -6,10 +6,8 @@ import pytest
 
 np = pytest.importorskip("numpy")
 
-from diplomacy.environment import observation_utils as dm_utils
-from diplomacy.environment import province_order
-
 from diplomacy.deepmind import build_observation
+from diplomacy.deepmind.observation import dm_utils, province_order
 from diplomacy.maps import standard_board
 from diplomacy.state import GameState
 from diplomacy.types import Phase, Power, Unit, UnitType

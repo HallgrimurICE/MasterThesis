@@ -12,20 +12,48 @@ try:  # pragma: no cover - exercised indirectly in import-time tests
 except ModuleNotFoundError:  # pragma: no cover - dependency hinting
     # ``diplomacy-main`` (DeepMind's release) lives alongside this project in
     # the repository. When the package is not installed into the environment we
-    # fall back to importing it directly from that sibling checkout so that
+    # fall back to loading the modules directly from that sibling checkout so
     # users can run the helpers without tweaking ``PYTHONPATH`` manually.
+    import importlib.util
     import sys
     from pathlib import Path
+    from types import ModuleType
 
     _DM_ROOT = Path(__file__).resolve().parents[3] / "diplomacy-main"
-    if not _DM_ROOT.exists():
+    _DM_ENVIRONMENT = _DM_ROOT / "environment"
+    if not _DM_ENVIRONMENT.exists():
         raise
-    sys.path.append(str(_DM_ROOT))
-    from diplomacy.environment import observation_utils as dm_utils  # type: ignore  # noqa: E402
-    from diplomacy.environment import province_order  # type: ignore  # noqa: E402
+
+    def _load_dm_module(module_name: str, filename: str) -> ModuleType:
+        module_path = _DM_ENVIRONMENT / filename
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None or spec.loader is None:  # pragma: no cover - defensive
+            raise ModuleNotFoundError(f"Unable to load {module_name} from {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        sys.modules[module_name] = module
+        return module
+
+    dm_utils = _load_dm_module(
+        "diplomacy.environment.observation_utils", "observation_utils.py"
+    )
+    province_order = _load_dm_module(
+        "diplomacy.environment.province_order", "province_order.py"
+    )
+
+    # Ensure ``diplomacy.environment`` is discoverable for downstream imports.
+    env_module = sys.modules.setdefault("diplomacy.environment", ModuleType("diplomacy.environment"))
+    env_module.__path__ = [str(_DM_ENVIRONMENT)]  # type: ignore[attr-defined]
+    env_module.observation_utils = dm_utils
+    env_module.province_order = province_order
+    diplomacy_pkg = sys.modules.get("diplomacy")
+    if diplomacy_pkg is not None:
+        setattr(diplomacy_pkg, "environment", env_module)
 
 from ..state import GameState
 from ..types import Phase, Power, Unit, UnitType
+
+__all__ = ["build_observation", "dm_utils", "province_order"]
 
 
 _POWER_ORDER = [
