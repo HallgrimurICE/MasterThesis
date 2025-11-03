@@ -273,6 +273,51 @@ def run_standard_board_with_random_england(
     interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_with_random_agents(
+    rounds: int = 1000,
+    visualize: bool = False,
+    *,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+    stop_on_winner: bool = True,
+) -> None:
+    """Run the full standard board with every power controlled by a random agent."""
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
+        )
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Standard Board After Round {round}",
+        stop_on_winner=stop_on_winner,
+    )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+
+    winner = states[-1].winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
 def demo_run_mesh_with_random_orders(rounds: int = 3):
     state = demo_state_mesh()
     states = [state]
@@ -352,11 +397,12 @@ __all__ = [
     "visualize_standard_board",
     "interactive_visualize_standard_board",
     "run_standard_board_with_random_england",
+    "run_standard_board_with_random_agents",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
 ]
 
 
 if __name__ == "__main__":
-    print("Running standard board with England as a random agent for 5 rounds...")
-    run_standard_board_with_random_england(rounds=5)
+    print("Running standard board with all powers as random agents for 50 rounds...")
+    run_standard_board_with_random_agents(visualize=True)

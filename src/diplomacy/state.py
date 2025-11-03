@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
@@ -270,7 +271,13 @@ class GameState:
             if not selection:
                 continue
             for loc in selection:
-                self.units[loc] = Unit(power, loc, UnitType.ARMY)
+                province = self.board.get(loc)
+                unit_type = UnitType.ARMY
+                if province and province.province_type == ProvinceType.COAST:
+                    unit_type = (
+                        UnitType.FLEET if random.choice([True, False]) else UnitType.ARMY
+                    )
+                self.units[loc] = Unit(power, loc, unit_type)
             built[power] = selection
         if built:
             self.pending_builds = {}
