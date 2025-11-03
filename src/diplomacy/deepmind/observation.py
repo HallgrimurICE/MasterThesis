@@ -6,8 +6,23 @@ from typing import Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 
-from diplomacy.environment import observation_utils as dm_utils
-from diplomacy.environment import province_order
+try:  # pragma: no cover - exercised indirectly in import-time tests
+    from diplomacy.environment import observation_utils as dm_utils
+    from diplomacy.environment import province_order
+except ModuleNotFoundError:  # pragma: no cover - dependency hinting
+    # ``diplomacy-main`` (DeepMind's release) lives alongside this project in
+    # the repository. When the package is not installed into the environment we
+    # fall back to importing it directly from that sibling checkout so that
+    # users can run the helpers without tweaking ``PYTHONPATH`` manually.
+    import sys
+    from pathlib import Path
+
+    _DM_ROOT = Path(__file__).resolve().parents[3] / "diplomacy-main"
+    if not _DM_ROOT.exists():
+        raise
+    sys.path.append(str(_DM_ROOT))
+    from diplomacy.environment import observation_utils as dm_utils  # type: ignore  # noqa: E402
+    from diplomacy.environment import province_order  # type: ignore  # noqa: E402
 
 from ..state import GameState
 from ..types import Phase, Power, Unit, UnitType
