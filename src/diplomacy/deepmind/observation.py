@@ -34,6 +34,18 @@ except ModuleNotFoundError:  # pragma: no cover - dependency hinting
         sys.modules[module_name] = module
         return module
 
+    # Ensure ``diplomacy.environment`` package placeholder exists before loading submodules.
+    env_module = sys.modules.get("diplomacy.environment")
+    if env_module is None:
+        env_module = ModuleType("diplomacy.environment")
+        env_module.__path__ = [str(_DM_ENVIRONMENT)]  # type: ignore[attr-defined]
+        sys.modules["diplomacy.environment"] = env_module
+    else:  # pragma: no cover - defensive cache reuse
+        existing_path = getattr(env_module, "__path__", [])
+        path_str = str(_DM_ENVIRONMENT)
+        if path_str not in existing_path:
+            env_module.__path__ = list(existing_path) + [path_str]  # type: ignore[attr-defined]
+
     dm_utils = _load_dm_module(
         "diplomacy.environment.observation_utils", "observation_utils.py"
     )
@@ -41,9 +53,7 @@ except ModuleNotFoundError:  # pragma: no cover - dependency hinting
         "diplomacy.environment.province_order", "province_order.py"
     )
 
-    # Ensure ``diplomacy.environment`` is discoverable for downstream imports.
-    env_module = sys.modules.setdefault("diplomacy.environment", ModuleType("diplomacy.environment"))
-    env_module.__path__ = [str(_DM_ENVIRONMENT)]  # type: ignore[attr-defined]
+    # Wire utilities onto the namespace so standard imports succeed.
     env_module.observation_utils = dm_utils
     env_module.province_order = province_order
     diplomacy_pkg = sys.modules.get("diplomacy")

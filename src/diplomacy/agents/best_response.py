@@ -1,0 +1,272 @@
+from __future__ import annotations
+
+import itertools
+import random
+from collections import OrderedDict
+from typing import Iterable, List, Optional, Sequence, Tuple
+
+import numpy as np
+
+from ..adjudication import Adjudicator
+from ..deepmind import build_observation
+from ..deepmind.observation import dm_utils, _POWER_TO_INDEX
+from ..orders import hold, move
+from ..state import GameState
+from ..types import Order, Power, Unit, UnitType, ProvinceType
+from .base import Agent
+
+
+class SampledBestResponsePolicy:
+    """Approximate best-response policy using observation-based rollouts.
+
+    The policy enumerates or samples joint orders for the controlled power,
+    evaluates the outcome assuming opponents hold, and selects the highest
+    scoring option based on DeepMind-style observations.
+    """
+
+    def __init__(
+        self,
+        *,
+        rollout_limit: int = 64,
+        rng: random.Random | None = None,
+        unit_weight: float = 1.0,
+        supply_center_weight: float = 5.0,
+        threatened_penalty: float = 2.0,
+    ) -> None:
+        self.rollout_limit = max(1, rollout_limit)
+        self._rng = rng or random.Random()
+        self.unit_weight = unit_weight
+        self.supply_center_weight = supply_center_weight
+        self.threatened_penalty = threatened_penalty
+
+    def plan_orders(self, state: GameState, power: Power) -> List[Order]:
+        friendly_units = sorted(
+            (unit for unit in state.units.values() if unit.power == power),
+            key=lambda unit: unit.loc,
+        )
+        if not friendly_units:
+            return []
+
+        candidate_map: "OrderedDict[str, List[Order]]" = OrderedDict()
+        for unit in friendly_units:
+            candidate_map[unit.loc] = self._candidate_orders(state, unit)
+
+        combos = self._enumerate_combos(candidate_map)
+        best_score = float("-inf")
+        best_orders: Sequence[Order] | None = None
+        for combo in combos:
+            score = self._score_combo(state, power, candidate_map.keys(), combo)
+            if score > best_score:
+                best_score = score
+                best_orders = combo
+
+        if best_orders is None:
+            return []
+        return list(best_orders)
+
+    def _candidate_orders(self, state: GameState, unit: Unit) -> List[Order]:
+        moves = state.legal_moves_from(unit.loc)
+        orders = [hold(unit)]
+        for destination in moves:
+            orders.append(move(unit, destination))
+        return orders
+
+    def plan_builds(
+        self,
+        state: GameState,
+        power: Power,
+        build_count: int,
+    ) -> List[Tuple[str, UnitType]]:
+        if build_count <= 0:
+            return []
+        candidates = self._build_candidates(state, power)
+        if not candidates:
+            return []
+        combos = self._enumerate_build_combos(candidates, build_count)
+        best_choice: Optional[Sequence[Tuple[str, UnitType]]] = None
+        best_score = float("-inf")
+        for combo in combos:
+            test_state = state.copy()
+            for loc, unit_type in combo:
+                test_state.units[loc] = Unit(power, loc, unit_type)
+            try:
+                observation = build_observation(test_state)
+            except (KeyError, ValueError):
+                observation = None
+            score = self._evaluate_state(test_state, observation, power)
+            if score > best_score:
+                best_score = score
+                best_choice = combo
+        if best_choice is None:
+            return []
+        return list(best_choice)
+
+    def _enumerate_combos(
+        self,
+        candidate_map: "OrderedDict[str, List[Order]]",
+    ) -> List[Tuple[Order, ...]]:
+        candidate_lists = list(candidate_map.values())
+        if not candidate_lists:
+            return []
+
+        total = 1
+        for options in candidate_lists:
+            total *= len(options)
+            if total > self.rollout_limit:
+                break
+
+        if total <= self.rollout_limit:
+            return list(itertools.product(*candidate_lists))
+
+        samples = set()
+        # Ensure deterministic baseline (all holds).
+        baseline = tuple(options[0] for options in candidate_lists)
+        samples.add(baseline)
+        while len(samples) < self.rollout_limit:
+            selection = tuple(
+                self._rng.choice(options) for options in candidate_lists
+            )
+            samples.add(selection)
+        return list(samples)
+
+    def _build_candidates(
+        self,
+        state: GameState,
+        power: Power,
+    ) -> List[Tuple[str, Tuple[UnitType, ...]]]:
+        candidates: List[Tuple[str, Tuple[UnitType, ...]]] = []
+        for loc in sorted(state.available_build_sites(power)):
+            province = state.board.get(loc)
+            if province is None:
+                continue
+            if province.province_type == ProvinceType.SEA:
+                continue
+            if province.province_type == ProvinceType.COAST:
+                unit_types = (UnitType.ARMY, UnitType.FLEET)
+            else:
+                unit_types = (UnitType.ARMY,)
+            candidates.append((loc, unit_types))
+        return candidates
+
+    def _enumerate_build_combos(
+        self,
+        candidates: List[Tuple[str, Tuple[UnitType, ...]]],
+        build_count: int,
+    ) -> List[Tuple[Tuple[str, UnitType], ...]]:
+        count = min(build_count, len(candidates))
+        if count <= 0:
+            return []
+
+        combos: set[Tuple[Tuple[str, UnitType], ...]] = set()
+        baseline = tuple(
+            (candidates[idx][0], candidates[idx][1][0]) for idx in range(count)
+        )
+        combos.add(tuple(sorted(baseline)))
+
+        max_attempts = max(self.rollout_limit * 4, 32)
+        attempts = 0
+        while len(combos) < self.rollout_limit and attempts < max_attempts:
+            indices = sorted(self._rng.sample(range(len(candidates)), count))
+            placement = []
+            for idx in indices:
+                loc, unit_types = candidates[idx]
+                placement.append((loc, self._rng.choice(unit_types)))
+            combos.add(tuple(sorted(placement)))
+            attempts += 1
+
+        if len(combos) < self.rollout_limit:
+            for subset in itertools.combinations(range(len(candidates)), count):
+                choice_lists = [
+                    [(candidates[idx][0], unit_type) for unit_type in candidates[idx][1]]
+                    for idx in subset
+                ]
+                for combo in itertools.product(*choice_lists):
+                    combos.add(tuple(sorted(combo)))
+                    if len(combos) >= self.rollout_limit:
+                        break
+                if len(combos) >= self.rollout_limit:
+                    break
+
+        return [combo for combo in combos]
+
+    def _score_combo(
+        self,
+        state: GameState,
+        power: Power,
+        unit_order: Iterable[str],
+        combo: Sequence[Order],
+    ) -> float:
+        order_map = dict(zip(unit_order, combo))
+        orders: List[Order] = list(combo)
+        for loc, unit in state.units.items():
+            if loc in order_map:
+                continue
+            orders.append(hold(unit))
+
+        def build_callback(build_state: GameState):
+            build_quota = build_state.pending_builds.get(power, 0)
+            if build_quota <= 0:
+                return {}
+            choices = self.plan_builds(build_state, power, build_quota)
+            if not choices:
+                return {}
+            return {power: choices}
+
+        next_state, _ = Adjudicator(state).resolve(
+            orders,
+            build_callback=build_callback,
+        )
+        observation: Optional[dm_utils.Observation]
+        try:
+            observation = build_observation(next_state)
+        except (KeyError, ValueError):
+            observation = None
+        return self._evaluate_state(next_state, observation, power)
+
+    def _evaluate_state(
+        self,
+        state: GameState,
+        observation: Optional[dm_utils.Observation],
+        power: Power,
+    ) -> float:
+        threatened = float(state.centers_threatened(power))
+
+        sc_control = float(
+            sum(1 for controller in state.supply_center_control.values() if controller == power)
+        )
+
+        if observation is not None:
+            power_index = _POWER_TO_INDEX.get(str(power), 0)
+            board = observation.board
+            unit_presence = float(
+                np.count_nonzero(board[:, dm_utils.OBSERVATION_UNIT_POWER_START + power_index])
+            )
+        else:
+            unit_presence = float(sum(1 for unit in state.units.values() if unit.power == power))
+
+        return (
+            self.unit_weight * unit_presence
+            + self.supply_center_weight * sc_control
+            - self.threatened_penalty * threatened
+        )
+
+
+class ObservationBestResponseAgent(Agent):
+    """Agent that selects orders via an observation-based best response policy."""
+
+    def __init__(
+        self,
+        power: Power,
+        *,
+        policy: SampledBestResponsePolicy | None = None,
+    ) -> None:
+        super().__init__(power)
+        self._policy = policy or SampledBestResponsePolicy()
+
+    def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
+        return self._policy.plan_orders(state, self.power)
+
+    def plan_builds(self, state: GameState, build_count: int) -> List[Tuple[str, UnitType]]:
+        return self._policy.plan_builds(state, self.power, build_count)
+
+__all__ = ["ObservationBestResponseAgent", "SampledBestResponsePolicy"]

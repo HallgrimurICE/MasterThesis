@@ -4,7 +4,12 @@ import random
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from .adjudication import Adjudicator, Resolution
-from .agents import Agent, RandomAgent
+from .agents import (
+    Agent,
+    ObservationBestResponseAgent,
+    RandomAgent,
+    SampledBestResponsePolicy,
+)
 from .maps import (
     cooperative_attack_initial_state,
     demo_state_mesh,
@@ -280,8 +285,19 @@ def run_standard_board_with_random_agents(
     seed: Optional[int] = None,
     hold_probability: float = 0.2,
     stop_on_winner: bool = True,
+    policy_power: Optional[Power] = Power("France"),
 ) -> None:
-    """Run the full standard board with every power controlled by a random agent."""
+    """Run the standard board with one policy-driven power and the rest random.
+
+    Args:
+        rounds: Number of movement rounds to simulate.
+        visualize: Whether to open the visualization mesh at the end.
+        seed: Optional PRNG seed for reproducibility.
+        hold_probability: Probability a random agent holds instead of acting.
+        stop_on_winner: Stop early when a winner is detected.
+        policy_power: Power to control via ``ObservationBestResponseAgent``;
+            set to ``None`` to make every power random.
+    """
 
     state = standard_initial_state()
     base_rng = random.Random(seed)
@@ -289,11 +305,16 @@ def run_standard_board_with_random_agents(
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
         agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = RandomAgent(
-            power,
-            hold_probability=hold_probability,
-            rng=random.Random(agent_seed),
-        )
+        if policy_power is not None and power == policy_power:
+            policy_rng = random.Random(agent_seed)
+            policy = SampledBestResponsePolicy(rng=policy_rng)
+            agents[power] = ObservationBestResponseAgent(power, policy=policy)
+        else:
+            agents[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
+            )
 
     states, titles, orders_history = run_rounds_with_agents(
         state,
@@ -404,5 +425,8 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    print("Running standard board with all powers as random agents for 50 rounds...")
-    run_standard_board_with_random_agents(visualize=True)
+    print(
+        "Running standard board with England using the observation best-response policy "
+        "and other powers as random agents for 50 rounds..."
+    )
+    run_standard_board_with_random_agents(rounds=1000, visualize=True, policy_power=Power("England"))

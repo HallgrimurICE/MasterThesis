@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .orders import hold
 from .state import GameState
-from .types import Order, OrderType, Phase, Power, Unit
+from .types import Order, OrderType, Phase, Power, Unit, UnitType
 
 
 @dataclass
@@ -26,12 +26,25 @@ class Adjudicator:
     def __init__(self, state: GameState):
         self.state = state
 
-    def resolve(self, orders: Iterable[Order]) -> Tuple[GameState, Resolution]:
+    def resolve(
+        self,
+        orders: Iterable[Order],
+        *,
+        build_callback: Optional[
+            Callable[[GameState], Mapping[Power, Sequence[Tuple[str, UnitType]]]]
+        ] = None,
+    ) -> Tuple[GameState, Resolution]:
         if self.state.phase in {Phase.SPRING_RETREAT, Phase.FALL_RETREAT}:
-            return self._resolve_retreat_phase(list(orders))
-        return self._resolve_movement_phase(list(orders))
+            return self._resolve_retreat_phase(list(orders), build_callback)
+        return self._resolve_movement_phase(list(orders), build_callback)
 
-    def _resolve_movement_phase(self, orders: List[Order]) -> Tuple[GameState, Resolution]:
+    def _resolve_movement_phase(
+        self,
+        orders: List[Order],
+        build_callback: Optional[
+            Callable[[GameState], Mapping[Power, Sequence[Tuple[str, UnitType]]]]
+        ],
+    ) -> Tuple[GameState, Resolution]:
         by_loc: Dict[str, Order] = {o.unit.loc: o for o in orders}
         for loc, unit in self.state.units.items():
             if loc not in by_loc:
@@ -221,13 +234,30 @@ class Adjudicator:
                 if disbanded:
                     resolution.auto_disbands = disbanded
                 next_state.update_pending_builds()
+                manual_built: Dict[Power, List[str]] = {}
+                if build_callback is not None and next_state.pending_builds:
+                    selections = build_callback(next_state.copy())
+                    if selections:
+                        manual_built = next_state.apply_build_choices(selections)
                 built = next_state.auto_build()
+                if manual_built:
+                    for power, provinces in manual_built.items():
+                        existing = resolution.auto_builds.get(power, [])
+                        resolution.auto_builds[power] = existing + provinces
                 if built:
-                    resolution.auto_builds = built
+                    for power, provinces in built.items():
+                        existing = resolution.auto_builds.get(power, [])
+                        resolution.auto_builds[power] = existing + provinces
 
         return next_state, resolution
 
-    def _resolve_retreat_phase(self, orders: List[Order]) -> Tuple[GameState, Resolution]:
+    def _resolve_retreat_phase(
+        self,
+        orders: List[Order],
+        build_callback: Optional[
+            Callable[[GameState], Mapping[Power, Sequence[Tuple[str, UnitType]]]]
+        ],
+    ) -> Tuple[GameState, Resolution]:
         pending = dict(self.state.pending_retreats)
         resolution = Resolution()
         next_state = self.state.copy()
@@ -305,9 +335,20 @@ class Adjudicator:
                 if disbanded:
                     resolution.auto_disbands = disbanded
                 next_state.update_pending_builds()
+                manual_built: Dict[Power, List[str]] = {}
+                if build_callback is not None and next_state.pending_builds:
+                    selections = build_callback(next_state.copy())
+                    if selections:
+                        manual_built = next_state.apply_build_choices(selections)
                 built = next_state.auto_build()
+                if manual_built:
+                    for power, provinces in manual_built.items():
+                        existing = resolution.auto_builds.get(power, [])
+                        resolution.auto_builds[power] = existing + provinces
                 if built:
-                    resolution.auto_builds = built
+                    for power, provinces in built.items():
+                        existing = resolution.auto_builds.get(power, [])
+                        resolution.auto_builds[power] = existing + provinces
             else:
                 next_state.supply_update_due = False
 

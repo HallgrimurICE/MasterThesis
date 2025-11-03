@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 from .adjudication import Adjudicator
 from .agents import Agent
 from .state import GameState
-from .types import Order, Power
+from .types import Order, Power, UnitType
 
 
 def run_rounds_with_agents(
@@ -23,6 +23,19 @@ def run_rounds_with_agents(
     titles = ["Initial State"]
     orders_history: List[List[Order]] = []
 
+    def collect_build_choices(build_state: GameState) -> Dict[Power, List[Tuple[str, UnitType]]]:
+        selections: Dict[Power, List[Tuple[str, UnitType]]] = {}
+        for build_power, count in build_state.pending_builds.items():
+            if count <= 0:
+                continue
+            agent = agents.get(build_power)
+            if agent is None:
+                continue
+            choices = agent.plan_builds(build_state, count)
+            if choices:
+                selections[build_power] = choices
+        return selections
+
     movement_round = 0
     while movement_round < rounds and (not stop_on_winner or state.winner is None):
         if state.phase.name.endswith("RETREAT"):
@@ -31,7 +44,10 @@ def run_rounds_with_agents(
                 if not any(u.power == power for u in state.pending_retreats.values()):
                     continue
                 retreat_orders.extend(agent.issue_orders(state))
-            state, resolution = Adjudicator(state).resolve(retreat_orders)
+            state, resolution = Adjudicator(state).resolve(
+                retreat_orders,
+                build_callback=collect_build_choices,
+            )
             states.append(state)
             title = f"{title_prefix.format(round=movement_round)} (Retreat)"
             if stop_on_winner and resolution.winner is not None:
@@ -63,7 +79,10 @@ def run_rounds_with_agents(
             round_orders.extend(agent_orders)
 
         orders_history.append(list(round_orders))
-        state, resolution = Adjudicator(state).resolve(round_orders)
+        state, resolution = Adjudicator(state).resolve(
+            round_orders,
+            build_callback=collect_build_choices,
+        )
         states.append(state)
         title = title_prefix.format(round=movement_round)
         if stop_on_winner and resolution.winner is not None:

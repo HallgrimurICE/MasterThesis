@@ -11,7 +11,14 @@ from .state import GameState
 from .adjudication import Resolution, Adjudicator
 from .simulation import run_rounds_with_agents
 from .maps import build_graph, cooperative_attack_initial_state, mesh_board_5x3, demo_state_mesh
-from .agents import Agent, ScriptedAgent, RandomAgent, Directive
+from .agents import (
+    Agent,
+    ScriptedAgent,
+    RandomAgent,
+    Directive,
+    ObservationBestResponseAgent,
+    SampledBestResponsePolicy,
+)
 from .demo import (
     simulate_two_power_cooperation,
     print_two_power_cooperation_report,
@@ -49,6 +56,8 @@ __all__ = [
     "ScriptedAgent",
     "RandomAgent",
     "Directive",
+    "ObservationBestResponseAgent",
+    "SampledBestResponsePolicy",
     "simulate_two_power_cooperation",
     "print_two_power_cooperation_report",
     "demo_run_mesh_with_random_orders",

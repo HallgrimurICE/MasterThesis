@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from ..state import GameState
-from ..types import Order, Unit
+from ..types import Order, Unit, UnitType
 
 
 class Agent:
@@ -42,6 +42,15 @@ class Agent:
         raise NotImplementedError
 
     def _plan_retreat_orders(self, state: "GameState", retreat_index: int) -> List[Order]:
+        return []
+
+    def plan_builds(
+        self,
+        state: "GameState",
+        build_count: int,
+    ) -> List[Tuple[str, UnitType]]:
+        """Return build placements for the upcoming build phase."""
+
         return []
 
 

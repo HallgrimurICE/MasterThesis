@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .graph import nx
 from .types import (
@@ -250,6 +250,53 @@ class GameState:
 
         self.pending_builds = builds
 
+    def available_build_sites(self, power: Power) -> List[str]:
+        return [
+            loc
+            for loc, controller in self.supply_center_control.items()
+            if controller == power
+            and self.board[loc].home_power == power
+            and loc not in self.units
+        ]
+
+    def apply_build_choices(
+        self,
+        selections: Mapping[Power, Sequence[Tuple[str, UnitType]]],
+    ) -> Dict[Power, List[str]]:
+        built: Dict[Power, List[str]] = {}
+        for power, builds in selections.items():
+            allowed = self.pending_builds.get(power, 0)
+            if allowed <= 0:
+                continue
+            available = set(self.available_build_sites(power))
+            if not available:
+                continue
+            placed: List[str] = []
+            for loc, unit_type in builds:
+                if len(placed) >= allowed:
+                    break
+                if loc not in available:
+                    continue
+                province = self.board.get(loc)
+                if province is None:
+                    continue
+                if unit_type == UnitType.FLEET and province.province_type == ProvinceType.LAND:
+                    continue
+                if unit_type == UnitType.ARMY and province.province_type == ProvinceType.SEA:
+                    continue
+                self.units[loc] = Unit(power, loc, unit_type)
+                available.remove(loc)
+                placed.append(loc)
+            if not placed:
+                continue
+            built[power] = placed
+            remaining = allowed - len(placed)
+            if remaining > 0:
+                self.pending_builds[power] = remaining
+            else:
+                self.pending_builds.pop(power, None)
+        return built
+
     def auto_build(self) -> Dict[Power, List[str]]:
         """Automatically build units at eligible home supply centers."""
 
@@ -257,13 +304,7 @@ class GameState:
         for power, count in list(self.pending_builds.items()):
             if count <= 0:
                 continue
-            candidates = [
-                loc
-                for loc, controller in self.supply_center_control.items()
-                if controller == power
-                and self.board[loc].home_power == power
-                and loc not in self.units
-            ]
+            candidates = self.available_build_sites(power)
             if not candidates:
                 continue
             candidates.sort()
