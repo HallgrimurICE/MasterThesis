@@ -1,392 +1,271 @@
 from __future__ import annotations
 
 import itertools
-import math
 import random
-from collections import deque
+from collections import OrderedDict
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+import numpy as np
+
 from ..adjudication import Adjudicator
-from ..orders import hold, move, retreat, support_hold, support_move
+from ..deepmind import build_observation
+from ..deepmind.observation import dm_utils, _POWER_TO_INDEX
+from ..orders import hold, move
 from ..state import GameState
-from ..types import Order, OrderType, Unit
+from ..types import Order, Power, Unit, UnitType, ProvinceType
 from .base import Agent
 
+class SampledBestResponsePolicy:
+    """Approximate best-response policy using observation-based rollouts.
 
-class NegotiatorBase(Agent):
-    """Common helpers shared by heuristic and SBR negotiators."""
-
-    def __init__(self, power, *, rng: Optional[random.Random] = None):
-        super().__init__(power)
-        self._rng = rng or random.Random()
-
-    def _graph_distance(self, start: str, goal: str, state: "GameState") -> int:
-        if start == goal:
-            return 0
-
-        visited = {start}
-        queue: deque[Tuple[str, int]] = deque([(start, 0)])
-        while queue:
-            current, distance = queue.popleft()
-            for neighbor in state.graph.neighbors(current):
-                if neighbor == goal:
-                    return distance + 1
-                if neighbor in visited:
-                    continue
-                visited.add(neighbor)
-                queue.append((neighbor, distance + 1))
-        return 3
-
-
-class BaselineNegotiator(NegotiatorBase):
-    """Heuristic negotiator that uses simple positional scoring.
-
-    The baseline agent keeps the original "good enough" behaviour from the
-    prototype: it prefers occupying or capturing supply centres, avoids friendly
-    fire, and keeps threatened units in place unless an attractive alternative
-    is available.  The stochastic tie-breaker ensures that games do not devolve
-    into the exact same move order every time.
-    """
-
-    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
-        orders: List[Order] = []
-        for unit in state.units.values():
-            if unit.power != self.power:
-                continue
-            candidates = self._candidate_orders(unit, state)
-            best_score = float("-inf")
-            best: List[Order] = []
-            for option in candidates:
-                score = self._order_score(option, state)
-                if score > best_score:
-                    best_score = score
-                    best = [option]
-                elif math.isclose(score, best_score):
-                    best.append(option)
-            chosen = self._rng.choice(best)
-            orders.append(chosen)
-        return orders
-
-    def _plan_retreat_orders(
-        self, state: "GameState", retreat_index: int
-    ) -> List[Order]:
-        choices: List[Order] = []
-        for origin, pending in state.pending_retreats.items():
-            if pending.power != self.power:
-                continue
-            legal = state.legal_retreats_from(origin)
-            if not legal:
-                continue
-            unit = Unit(self.power, origin, pending.unit_type)
-            best_dest = max(
-                legal,
-                key=lambda dest: self._retreat_destination_score(unit, dest, state),
-            )
-            choices.append(retreat(unit, best_dest))
-        return choices
-
-    def _candidate_orders(self, unit: Unit, state: "GameState") -> List[Order]:
-        options = [hold(unit)]
-        for destination in state.legal_moves_from(unit.loc):
-            options.append(move(unit, destination))
-        return options
-
-    def _order_score(self, order: Order, state: "GameState") -> float:
-        unit = order.unit
-        if order.type == OrderType.HOLD:
-            province = state.board.get(unit.loc)
-            score = 0.1
-            if province and province.is_supply_center:
-                score += 1.1
-            if self._is_threatened(unit.loc, state):
-                score += 0.6
-            return score
-
-        if order.type != OrderType.MOVE or order.target is None:
-            return 0.0
-
-        destination = order.target
-        province = state.board.get(destination)
-        score = 0.0
-        if province and province.is_supply_center:
-            controller = state.supply_center_control.get(destination)
-            if controller == self.power:
-                score += 0.8
-            else:
-                score += 1.8
-
-        occupant = state.units.get(destination)
-        if occupant is None:
-            score += 0.3
-        elif occupant.power != self.power:
-            score += 0.9
-        else:
-            score -= 1.5
-
-        # Encourage movement away from nearby enemy concentrations.
-        threat_distance = self._nearest_enemy_distance(destination, state)
-        score += 0.2 * threat_distance
-
-        # Gentle random noise for tie-breaking between equivalent moves.
-        score += self._rng.random() * 0.01
-        return score
-
-    def _retreat_destination_score(
-        self, unit: Unit, destination: str, state: "GameState"
-    ) -> float:
-        score = 0.0
-        province = state.board.get(destination)
-        if province and province.is_supply_center:
-            score += 1.2
-        score += 0.2 * self._nearest_enemy_distance(destination, state)
-        score += self._rng.random() * 0.01
-        return score
-
-    def _nearest_enemy_distance(self, origin: str, state: "GameState") -> float:
-        distance = min(
-            (
-                self._graph_distance(origin, enemy.loc, state)
-                for enemy in state.units.values()
-                if enemy.power != self.power
-            ),
-            default=3,
-        )
-        return float(distance)
-
-    def _is_threatened(self, location: str, state: "GameState") -> bool:
-        for neighbor in state.graph.neighbors(location):
-            occupant = state.units.get(neighbor)
-            if occupant and occupant.power != self.power:
-                return True
-        return False
-
-
-class SBRNegotiator(NegotiatorBase):
-    """Sampled Best Response agent used for stronger automated opponents.
-
-    The implementation is intentionally lightweight – it does not attempt to
-    reproduce DeepMind's full negotiation stack, but it mirrors the high-level
-    idea of Sampled Best Response (SBR): generate candidate joint orders for a
-    power, roll them out against sampled opponent behaviour, and pick the set
-    with the highest expected value.  The evaluator favours securing supply
-    centres, keeping friendly units alive, and avoiding threatened positions.
-
-    Parameters
-    ----------
-    power:
-        The power controlled by this agent.
-    max_candidates:
-        Maximum number of joint order combinations to evaluate per round.  When
-        the Cartesian product of unit order options exceeds this bound we fall
-        back to random sampling while ensuring a deterministic baseline (all
-        holds) is evaluated.
-    opponent_samples:
-        Number of opponent order samples used when scoring a joint order set.
-    rng:
-        Optional ``random.Random`` instance for deterministic behaviour.
+    The policy enumerates or samples joint orders for the controlled power,
+    evaluates the outcome assuming opponents hold, and selects the highest
+    scoring option based on DeepMind-style observations.
     """
 
     def __init__(
         self,
-        power,
         *,
-        max_candidates: int = 128,
-        opponent_samples: int = 3,
-        rng: Optional[random.Random] = None,
-    ):
-        super().__init__(power, rng=rng)
-        if max_candidates <= 0:
-            raise ValueError("max_candidates must be positive")
-        if opponent_samples <= 0:
-            raise ValueError("opponent_samples must be positive")
-        self.max_candidates = max_candidates
-        self.opponent_samples = opponent_samples
+        rollout_limit: int = 64,
+        rng: random.Random | None = None,
+        unit_weight: float = 1.0,
+        supply_center_weight: float = 5.0,
+        threatened_penalty: float = 2.0,
+    ) -> None:
+        self.rollout_limit = max(1, rollout_limit)
+        self._rng = rng or random.Random()
+        self.unit_weight = unit_weight
+        self.supply_center_weight = supply_center_weight
+        self.threatened_penalty = threatened_penalty
 
-    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
-        friendly_units = [
-            unit for unit in state.units.values() if unit.power == self.power
-        ]
+    def plan_orders(self, state: GameState, power: Power) -> List[Order]:
+        friendly_units = sorted(
+            (unit for unit in state.units.values() if unit.power == power),
+            key=lambda unit: unit.loc,
+        )
         if not friendly_units:
             return []
 
-        per_unit_orders: List[List[Order]] = [
-            self._candidate_orders_for_unit(unit, state) for unit in friendly_units
-        ]
+        candidate_map: "OrderedDict[str, List[Order]]" = OrderedDict()
+        for unit in friendly_units:
+            candidate_map[unit.loc] = self._candidate_orders(state, unit)
 
-        joint_orders = self._sample_joint_orders(per_unit_orders)
-        baseline_orders = [hold(unit) for unit in friendly_units]
-        best_orders: Sequence[Order] = baseline_orders
+        combos = self._enumerate_combos(candidate_map)
         best_score = float("-inf")
-
-        for combo in joint_orders:
-            score = self._evaluate_orders(state, combo)
+        best_orders: Sequence[Order] | None = None
+        for combo in combos:
+            score = self._score_combo(state, power, candidate_map.keys(), combo)
             if score > best_score:
                 best_score = score
                 best_orders = combo
-            elif math.isclose(score, best_score):
-                # Tie-break deterministically using lexicographic order strings.
-                if self._orders_key(combo) < self._orders_key(best_orders):
-                    best_orders = combo
 
+        if best_orders is None:
+            return []
         return list(best_orders)
 
-    def _plan_retreat_orders(
-        self, state: "GameState", retreat_index: int
-    ) -> List[Order]:
-        orders: List[Order] = []
-        for origin, pending in state.pending_retreats.items():
-            if pending.power != self.power:
-                continue
-            legal = state.legal_retreats_from(origin)
-            if not legal:
-                continue
-            unit = Unit(self.power, origin, pending.unit_type)
-            best_dest = max(
-                legal,
-                key=lambda dest: self._retreat_destination_score(unit, dest, state),
-            )
-            orders.append(retreat(unit, best_dest))
+    def _candidate_orders(self, state: GameState, unit: Unit) -> List[Order]:
+        moves = state.legal_moves_from(unit.loc)
+        orders = [hold(unit)]
+        for destination in moves:
+            orders.append(move(unit, destination))
         return orders
 
-    def _candidate_orders_for_unit(self, unit: Unit, state: "GameState") -> List[Order]:
-        options: List[Order] = []
+    def plan_builds(
+        self,
+        state: GameState,
+        power: Power,
+        build_count: int,
+    ) -> List[Tuple[str, UnitType]]:
+        if build_count <= 0:
+            return []
+        candidates = self._build_candidates(state, power)
+        if not candidates:
+            return []
+        combos = self._enumerate_build_combos(candidates, build_count)
+        best_choice: Optional[Sequence[Tuple[str, UnitType]]] = None
+        best_score = float("-inf")
+        for combo in combos:
+            test_state = state.copy()
+            for loc, unit_type in combo:
+                test_state.units[loc] = Unit(power, loc, unit_type)
+            try:
+                observation = build_observation(test_state)
+            except (KeyError, ValueError):
+                observation = None
+            score = self._evaluate_state(test_state, observation, power)
+            if score > best_score:
+                best_score = score
+                best_choice = combo
+        if best_choice is None:
+            return []
+        return list(best_choice)
 
-        # Hold is always available.
-        options.append(hold(unit))
+    def _enumerate_combos(
+        self,
+        candidate_map: "OrderedDict[str, List[Order]]",
+    ) -> List[Tuple[Order, ...]]:
+        candidate_lists = list(candidate_map.values())
+        if not candidate_lists:
+            return []
 
-        # Direct moves into legal neighbouring provinces.
-        for destination in state.legal_moves_from(unit.loc):
-            options.append(move(unit, destination))
+        total = 1
+        for options in candidate_lists:
+            total *= len(options)
+            if total > self.rollout_limit:
+                break
 
-        # Support actions for adjacent friendly units.
-        for friend in state.units.values():
-            if friend.power != self.power or friend.loc == unit.loc:
-                continue
-            if friend.loc not in state.graph.neighbors(unit.loc):
-                continue
-            options.append(support_hold(unit, friend.loc))
-            for friend_dest in state.legal_moves_from(friend.loc):
-                if friend_dest not in state.graph.neighbors(unit.loc):
-                    continue
-                options.append(support_move(unit, friend.loc, friend_dest))
+        if total <= self.rollout_limit:
+            return list(itertools.product(*candidate_lists))
 
-        # Remove duplicates while preserving order.
-        seen = set()
-        deduped: List[Order] = []
-        for order in options:
-            key = self._order_identity(order)
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(order)
-        return deduped
+        samples = set()
+        # Ensure deterministic baseline (all holds).
+        baseline = tuple(options[0] for options in candidate_lists)
+        samples.add(baseline)
+        while len(samples) < self.rollout_limit:
+            selection = tuple(
+                self._rng.choice(options) for options in candidate_lists
+            )
+            samples.add(selection)
+        return list(samples)
 
-    def _sample_joint_orders(
-        self, per_unit_orders: Sequence[Sequence[Order]]
-    ) -> List[Sequence[Order]]:
-        total = math.prod(len(opts) for opts in per_unit_orders)
-        if total <= self.max_candidates:
-            combos = list(itertools.product(*per_unit_orders))
-        else:
-            combos_set: set[Tuple[Order, ...]] = set()
-            # Ensure the all-hold baseline is evaluated.
-            baseline = tuple(opts[0] for opts in per_unit_orders)
-            combos_set.add(baseline)
-            while len(combos_set) < self.max_candidates:
-                selection = tuple(
-                    self._rng.choice(list(opts)) for opts in per_unit_orders
-                )
-                combos_set.add(selection)
-            combos = list(combos_set)
-
-        combos.sort(key=self._orders_key)
-        return combos
-
-    def _evaluate_orders(
-        self, state: "GameState", orders: Sequence[Order]
-    ) -> float:
-        score = 0.0
-        for _ in range(self.opponent_samples):
-            opponent_orders = list(self._sample_opponent_orders(state))
-            combined: List[Order] = list(orders) + opponent_orders
-            next_state, _ = Adjudicator(state).resolve(combined)
-            score += self._state_value(next_state)
-        return score / float(self.opponent_samples)
-
-    def _sample_opponent_orders(self, state: "GameState") -> Iterable[Order]:
-        for unit in state.units.values():
-            if unit.power == self.power:
-                continue
-            legal = state.legal_moves_from(unit.loc)
-            if not legal or self._rng.random() < 0.5:
-                yield hold(unit)
-            else:
-                destination = self._rng.choice(legal)
-                yield move(unit, destination)
-
-    def _state_value(self, state: "GameState") -> float:
-        score = 0.0
-        for loc, unit in state.units.items():
+    def _build_candidates(
+        self,
+        state: GameState,
+        power: Power,
+    ) -> List[Tuple[str, Tuple[UnitType, ...]]]:
+        candidates: List[Tuple[str, Tuple[UnitType, ...]]] = []
+        for loc in sorted(state.available_build_sites(power)):
             province = state.board.get(loc)
             if province is None:
                 continue
-            if unit.power == self.power:
-                score += 1.0
-                if province.is_supply_center:
-                    score += 2.0
+            if province.province_type == ProvinceType.SEA:
+                continue
+            if province.province_type == ProvinceType.COAST:
+                unit_types = (UnitType.ARMY, UnitType.FLEET)
             else:
-                if province.is_supply_center:
-                    score -= 1.5
+                unit_types = (UnitType.ARMY,)
+            candidates.append((loc, unit_types))
+        return candidates
 
-        score += state.supply_centers(self.power) * 1.5
-        score -= state.centers_threatened(self.power) * 0.5
+    def _enumerate_build_combos(
+        self,
+        candidates: List[Tuple[str, Tuple[UnitType, ...]]],
+        build_count: int,
+    ) -> List[Tuple[Tuple[str, UnitType], ...]]:
+        count = min(build_count, len(candidates))
+        if count <= 0:
+            return []
 
-        # Penalise outstanding retreats for this power.
-        pending = sum(
-            1
-            for retreat_unit in state.pending_retreats.values()
-            if retreat_unit.power == self.power
+        combos: set[Tuple[Tuple[str, UnitType], ...]] = set()
+        baseline = tuple(
+            (candidates[idx][0], candidates[idx][1][0]) for idx in range(count)
         )
-        score -= pending * 1.0
+        combos.add(tuple(sorted(baseline)))
 
-        # Small randomised jitter for deterministic tie-breaking influenced by rng.
-        score += self._rng.random() * 0.01
-        return score
+        max_attempts = max(self.rollout_limit * 4, 32)
+        attempts = 0
+        while len(combos) < self.rollout_limit and attempts < max_attempts:
+            indices = sorted(self._rng.sample(range(len(candidates)), count))
+            placement = []
+            for idx in indices:
+                loc, unit_types = candidates[idx]
+                placement.append((loc, self._rng.choice(unit_types)))
+            combos.add(tuple(sorted(placement)))
+            attempts += 1
 
-    def _retreat_destination_score(
-        self, unit: Unit, destination: str, state: "GameState"
+        if len(combos) < self.rollout_limit:
+            for subset in itertools.combinations(range(len(candidates)), count):
+                choice_lists = [
+                    [(candidates[idx][0], unit_type) for unit_type in candidates[idx][1]]
+                    for idx in subset
+                ]
+                for combo in itertools.product(*choice_lists):
+                    combos.add(tuple(sorted(combo)))
+                    if len(combos) >= self.rollout_limit:
+                        break
+                if len(combos) >= self.rollout_limit:
+                    break
+
+        return [combo for combo in combos]
+
+    def _score_combo(
+        self,
+        state: GameState,
+        power: Power,
+        unit_order: Iterable[str],
+        combo: Sequence[Order],
     ) -> float:
-        province = state.board.get(destination)
-        base = 0.0
-        if province is not None and province.is_supply_center:
-            base += 1.5
+        order_map = dict(zip(unit_order, combo))
+        orders: List[Order] = list(combo)
+        for loc, unit in state.units.items():
+            if loc in order_map:
+                continue
+            orders.append(hold(unit))
 
-        # Prefer destinations further from enemy units.
-        enemy_distance = min(
-            (
-                self._graph_distance(destination, enemy.loc, state)
-                for enemy in state.units.values()
-                if enemy.power != self.power
-            ),
-            default=3,
+        def build_callback(build_state: GameState):
+            build_quota = build_state.pending_builds.get(power, 0)
+            if build_quota <= 0:
+                return {}
+            choices = self.plan_builds(build_state, power, build_quota)
+            if not choices:
+                return {}
+            return {power: choices}
+
+        next_state, _ = Adjudicator(state).resolve(
+            orders,
+            build_callback=build_callback,
         )
-        base += 0.3 * enemy_distance
-        return base
+        observation: Optional[dm_utils.Observation]
+        try:
+            observation = build_observation(next_state)
+        except (KeyError, ValueError):
+            observation = None
+        return self._evaluate_state(next_state, observation, power)
 
-    @staticmethod
-    def _order_identity(order: Order) -> Tuple:
+    def _evaluate_state(
+        self,
+        state: GameState,
+        observation: Optional[dm_utils.Observation],
+        power: Power,
+    ) -> float:
+        threatened = float(state.centers_threatened(power))
+
+        sc_control = float(
+            sum(1 for controller in state.supply_center_control.values() if controller == power)
+        )
+
+        if observation is not None:
+            power_index = _POWER_TO_INDEX.get(str(power), 0)
+            board = observation.board
+            unit_presence = float(
+                np.count_nonzero(board[:, dm_utils.OBSERVATION_UNIT_POWER_START + power_index])
+            )
+        else:
+            unit_presence = float(sum(1 for unit in state.units.values() if unit.power == power))
+
         return (
-            order.unit.power,
-            order.unit.loc,
-            order.type,
-            order.target,
-            order.support_unit_loc,
-            order.support_target,
+            self.unit_weight * unit_presence
+            + self.supply_center_weight * sc_control
+            - self.threatened_penalty * threatened
         )
 
-    @staticmethod
-    def _orders_key(orders: Sequence[Order]) -> Tuple[str, ...]:
-        return tuple(str(order) for order in orders)
 
+class ObservationBestResponseAgent(Agent):
+    """Agent that selects orders via an observation-based best response policy."""
 
-__all__ = ["BaselineNegotiator", "SBRNegotiator"]
+    def __init__(
+        self,
+        power: Power,
+        *,
+        policy: SampledBestResponsePolicy | None = None,
+    ) -> None:
+        super().__init__(power)
+        self._policy = policy or SampledBestResponsePolicy()
+
+    def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
+        return self._policy.plan_orders(state, self.power)
+
+    def plan_builds(self, state: GameState, build_count: int) -> List[Tuple[str, UnitType]]:
+        return self._policy.plan_builds(state, self.power, build_count)
+
+__all__ = ["ObservationBestResponseAgent", "SampledBestResponsePolicy"]
