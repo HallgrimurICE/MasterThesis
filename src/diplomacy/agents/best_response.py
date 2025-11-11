@@ -3,23 +3,23 @@ from __future__ import annotations
 import itertools
 import random
 from collections import OrderedDict
-from typing import Iterable, List, Optional, Sequence, Tuple, Any
-
-import numpy as np
+from typing import Any, List, Optional, Sequence, Tuple
 
 from ..adjudication import Adjudicator
-from ..orders import hold, move
+from ..orders import hold, move, support_hold, support_move
 from ..state import GameState
 from ..types import Order, Power, Unit, UnitType, ProvinceType
 from .base import Agent
 
 
 class SampledBestResponsePolicy:
-    """Approximate best-response policy using observation-based rollouts.
+    """Approximate best-response policy using sampled best responses.
 
-    The policy enumerates or samples joint orders for the controlled power,
-    evaluates the outcome assuming opponents hold, and selects the highest
-    scoring option based on DeepMind-style observations.
+    The policy enumerates or samples joint orders for the controlled power and
+    evaluates them against a set of stochastic opponent base profiles,
+    mirroring the sampled-best-response procedure. Candidate sets are limited
+    for tractability and scored with the linear value weights already tuned for
+    the project.
     """
 
     def __init__(
@@ -30,37 +30,19 @@ class SampledBestResponsePolicy:
         unit_weight: float = 1.0,
         supply_center_weight: float = 5.0,
         threatened_penalty: float = 2.0,
+        base_profile_count: int = 8,
     ) -> None:
         self.rollout_limit = max(1, rollout_limit)
         self._rng = rng or random.Random()
         self.unit_weight = unit_weight
         self.supply_center_weight = supply_center_weight
         self.threatened_penalty = threatened_penalty
+        self.base_profile_count = max(1, base_profile_count)
 
     def plan_orders(self, state: GameState, power: Power) -> List[Order]:
-        friendly_units = sorted(
-            (unit for unit in state.units.values() if unit.power == power),
-            key=lambda unit: unit.loc,
-        )
-        if not friendly_units:
-            return []
-
-        candidate_map: "OrderedDict[str, List[Order]]" = OrderedDict()
-        for unit in friendly_units:
-            candidate_map[unit.loc] = self._candidate_orders(state, unit)
-
-        combos = self._enumerate_combos(candidate_map)
-        best_score = float("-inf")
-        best_orders: Sequence[Order] | None = None
-        for combo in combos:
-            score = self._score_combo(state, power, candidate_map.keys(), combo)
-            if score > best_score:
-                best_score = score
-                best_orders = combo
-
-        if best_orders is None:
-            return []
-        return list(best_orders)
+        candidate_map = self._build_candidate_order_map(state, power)
+        best_orders, _ = self._select_best_orders(state, power, candidate_map)
+        return best_orders
 
     def _candidate_orders(self, state: GameState, unit: Unit) -> List[Order]:
         moves = state.legal_moves_from(unit.loc)
@@ -87,15 +69,61 @@ class SampledBestResponsePolicy:
             test_state = state.copy()
             for loc, unit_type in combo:
                 test_state.units[loc] = Unit(power, loc, unit_type)
-            # Observation building not available, use None
-            observation = None
-            score = self._evaluate_state(test_state, observation, power)
+            candidate_map = self._build_candidate_order_map(test_state, power)
+            _, score = self._select_best_orders(test_state, power, candidate_map)
             if score > best_score:
                 best_score = score
                 best_choice = combo
         if best_choice is None:
             return []
         return list(best_choice)
+
+    def _build_candidate_order_map(
+        self, state: GameState, power: Power
+    ) -> "OrderedDict[str, List[Order]]":
+        friendly_units = sorted(
+            (unit for unit in state.units.values() if unit.power == power),
+            key=lambda unit: unit.loc,
+        )
+        candidate_map: "OrderedDict[str, List[Order]]" = OrderedDict()
+        for unit in friendly_units:
+            candidate_map[unit.loc] = self._candidate_orders(state, unit)
+        return candidate_map
+
+    def _select_best_orders(
+        self,
+        state: GameState,
+        power: Power,
+        candidate_map: "OrderedDict[str, List[Order]]" | None = None,
+    ) -> Tuple[List[Order], float]:
+        if candidate_map is None:
+            candidate_map = self._build_candidate_order_map(state, power)
+
+        if not candidate_map:
+            base_score = self._evaluate_state(state, None, power)
+            return [], base_score
+
+        combos = self._enumerate_combos(candidate_map)
+        if not combos:
+            base_score = self._evaluate_state(state, None, power)
+            return [], base_score
+
+        base_profiles = self._sample_base_profiles(state, power)
+        unit_order = list(candidate_map.keys())
+
+        best_score = float("-inf")
+        best_orders: Sequence[Order] | None = None
+        for combo in combos:
+            score = self._estimate_combo_value(
+                state, power, unit_order, combo, base_profiles
+            )
+            if score > best_score:
+                best_score = score
+                best_orders = combo
+
+        if best_orders is None:
+            return [], self._evaluate_state(state, None, power)
+        return list(best_orders), best_score
 
     def _enumerate_combos(
         self,
@@ -185,22 +213,109 @@ class SampledBestResponsePolicy:
 
         return [combo for combo in combos]
 
-    def _score_combo(
+    def _sample_base_profiles(
+        self, state: GameState, power: Power
+    ) -> List[Tuple[Order, ...]]:
+        opponents = sorted(
+            (unit for unit in state.units.values() if unit.power != power),
+            key=lambda unit: (str(unit.power), unit.loc),
+        )
+        if not opponents:
+            return [tuple()]
+
+        all_units: List[Unit] = list(state.units.values())
+        legal_moves_map = {
+            unit.loc: state.legal_moves_from(unit.loc) for unit in all_units
+        }
+
+        profiles: List[Tuple[Order, ...]] = []
+        baseline = tuple(hold(unit) for unit in opponents)
+        profiles.append(baseline)
+
+        while len(profiles) < self.base_profile_count:
+            profile_orders = []
+            for unit in opponents:
+                profile_orders.append(
+                    self._sample_opponent_order(state, unit, all_units, legal_moves_map)
+                )
+            profiles.append(tuple(profile_orders))
+
+        return profiles
+
+    def _sample_opponent_order(
+        self,
+        state: GameState,
+        unit: Unit,
+        all_units: Sequence[Unit],
+        legal_moves_map: dict[str, List[str]],
+    ) -> Order:
+        legal_moves = legal_moves_map.get(unit.loc, [])
+        support_hold_targets = [
+            nbr
+            for nbr in state.graph.neighbors(unit.loc)
+            if nbr in state.units and state.units[nbr].power == unit.power
+        ]
+        support_move_options: List[Tuple[str, str]] = []
+        for dest in state.graph.neighbors(unit.loc):
+            for other_unit in all_units:
+                if other_unit.loc == unit.loc:
+                    continue
+                if other_unit.power != unit.power:
+                    continue
+                other_moves = legal_moves_map.get(other_unit.loc, [])
+                if dest in other_moves:
+                    support_move_options.append((other_unit.loc, dest))
+
+        options: List[Order] = [hold(unit)]
+        options.extend(move(unit, destination) for destination in legal_moves)
+        options.extend(support_hold(unit, friend) for friend in support_hold_targets)
+        options.extend(
+            support_move(unit, friend_from, friend_to)
+            for friend_from, friend_to in support_move_options
+        )
+
+        return self._rng.choice(options)
+
+    def _estimate_combo_value(
         self,
         state: GameState,
         power: Power,
-        unit_order: Iterable[str],
+        unit_order: Sequence[str],
         combo: Sequence[Order],
+        base_profiles: Sequence[Sequence[Order]],
     ) -> float:
-        order_map = dict(zip(unit_order, combo))
+        if not base_profiles:
+            return self._resolve_and_score(state, power, unit_order, combo, tuple())
+
+        total = 0.0
+        for profile in base_profiles:
+            total += self._resolve_and_score(state, power, unit_order, combo, profile)
+        return total / float(len(base_profiles))
+
+    def _resolve_and_score(
+        self,
+        state: GameState,
+        power: Power,
+        unit_order: Sequence[str],
+        combo: Sequence[Order],
+        opponent_orders: Sequence[Order],
+    ) -> float:
+        assigned: set[str] = set(unit_order)
         orders: List[Order] = list(combo)
+
+        for order in opponent_orders:
+            if order.unit.loc in assigned:
+                continue
+            orders.append(order)
+            assigned.add(order.unit.loc)
+
         for loc, unit in state.units.items():
-            if loc in order_map:
+            if loc in assigned:
                 continue
             orders.append(hold(unit))
+            assigned.add(loc)
 
         next_state, _ = Adjudicator(state).resolve(orders)
-        # Observation building not available, use None
         observation: Optional[Any] = None
         return self._evaluate_state(next_state, observation, power)
 
