@@ -15,8 +15,8 @@ from .agents import (
     Agent,
     ScriptedAgent,
     RandomAgent,
-    BaselineNegotiator,
-    SBRNegotiator,
+    ObservationBestResponseAgent,
+    SampledBestResponsePolicy,
     Directive,
 )
 from .demo import (
@@ -55,8 +55,8 @@ __all__ = [
     "Agent",
     "ScriptedAgent",
     "RandomAgent",
-    "BaselineNegotiator",
-    "SBRNegotiator",
+    "ObservationBestResponseAgent",
+    "SampledBestResponsePolicy",
     "Directive",
     "simulate_two_power_cooperation",
     "print_two_power_cooperation_report",

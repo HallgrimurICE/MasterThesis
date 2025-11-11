@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import random
+from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from .adjudication import Adjudicator, Resolution
-from .agents import Agent, RandomAgent, SBRNegotiator
+from .agents import (
+    Agent,
+    ObservationBestResponseAgent,
+    RandomAgent,
+    SampledBestResponsePolicy,
+)
 from .maps import (
     cooperative_attack_initial_state,
     demo_state_mesh,
@@ -202,116 +208,6 @@ def print_standard_board_demo() -> None:
         print("\n(No starting units added yet.)")
 
 
-def print_sbr_vs_random_summary(
-    trials: int = 100,
-    *,
-    rounds: int = 6,
-    seed: Optional[int] = 2024,
-    sbr_power_name: str = "England",
-) -> None:
-    """Run multiple games with one SBR agent against random opponents.
-
-    Parameters
-    ----------
-    trials:
-        Number of independent simulations to execute.
-    rounds:
-        Maximum number of movement phases to simulate in each trial.
-    seed:
-        Optional seed controlling the RNG used to initialise the agents.
-    sbr_power_name:
-        Name of the power that should be controlled by the SBR agent.
-    """
-
-    if trials <= 0:
-        raise ValueError("trials must be positive")
-    if rounds <= 0:
-        raise ValueError("rounds must be positive")
-
-    global_rng = random.Random(seed)
-    initial_state = standard_initial_state()
-    powers = sorted(initial_state.powers, key=str)
-    try:
-        sbr_power = next(power for power in powers if str(power) == sbr_power_name)
-    except StopIteration as exc:  # pragma: no cover - defensive
-        raise ValueError(
-            f"Power named '{sbr_power_name}' not present in the standard setup."
-        ) from exc
-
-    totals: Dict[Power, Dict[str, float]] = {
-        power: {"wins": 0.0, "sc": 0.0, "units": 0.0} for power in powers
-    }
-    draws = 0
-
-    for trial in range(1, trials + 1):
-        state = standard_initial_state()
-        agents: Dict[Power, Agent] = {}
-
-        agents[sbr_power] = SBRNegotiator(
-            sbr_power,
-            rng=random.Random(global_rng.randint(0, 2**32 - 1)),
-        )
-
-        for power in powers:
-            if power == sbr_power:
-                continue
-            agents[power] = RandomAgent(
-                power,
-                rng=random.Random(global_rng.randint(0, 2**32 - 1)),
-            )
-
-        states, _, _ = run_rounds_with_agents(
-            state,
-            agents,
-            rounds,
-            stop_on_winner=True,
-        )
-
-        final_state = states[-1]
-        winner = final_state.winner
-        if winner is None:
-            draws += 1
-
-        for power in powers:
-            if winner == power:
-                totals[power]["wins"] += 1.0
-
-            controlled = sum(
-                1 for owner in final_state.supply_center_control.values() if owner == power
-            )
-            totals[power]["sc"] += float(controlled)
-
-            unit_count = sum(1 for unit in final_state.units.values() if unit.power == power)
-            totals[power]["units"] += float(unit_count)
-
-    header = (
-        f"{'Power':<12} {'Agent':<16} {'Wins':>4} {'Win%':>6} "
-        f"{'Avg SC':>8} {'Avg Units':>10}"
-    )
-    print("=== SBR vs Random Summary ===")
-    print(
-        "One SBR agent (" + str(sbr_power) + ") against six Random agents on the standard map."
-    )
-    print(f"Trials: {trials}, Rounds per trial: {rounds}, Seed: {seed}")
-    print(header)
-    print("-" * len(header))
-
-    for power in powers:
-        agent_label = "SBRNegotiator" if power == sbr_power else "RandomAgent"
-        wins = int(totals[power]["wins"])
-        win_rate = totals[power]["wins"] / trials * 100.0
-        avg_sc = totals[power]["sc"] / trials
-        avg_units = totals[power]["units"] / trials
-        print(
-            f"{str(power):<12} {agent_label:<16} {wins:>4d} {win_rate:>6.1f} "
-            f"{avg_sc:>8.2f} {avg_units:>10.2f}"
-        )
-
-    draw_rate = draws / trials * 100.0
-    print("-" * len(header))
-    print(f"Draws / No winner: {draws} ({draw_rate:.1f}%)")
-
-
 def visualize_fleet_coast_demo() -> None:
     """Interactive visualization for the fleet/coast terrain demo."""
 
@@ -390,14 +286,95 @@ def run_standard_board_with_random_agents(
     seed: Optional[int] = None,
     hold_probability: float = 0.2,
     stop_on_winner: bool = True,
+    policy_power: Optional[Power] = Power("England"),
 ) -> None:
-    """Run the full standard board with every power controlled by a random agent."""
+    """Run the standard board with one policy-driven power and the rest random.
+
+    Args:
+        rounds: Number of movement rounds to simulate.
+        visualize: Whether to open the visualization mesh at the end.
+        seed: Optional PRNG seed for reproducibility.
+        hold_probability: Probability a random agent holds instead of acting.
+        stop_on_winner: Stop early when a winner is detected.
+        policy_power: Power to control via ``ObservationBestResponseAgent``;
+            set to ``None`` to make every power random.
+    """
 
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        if policy_power is not None and power == policy_power:
+            policy_rng = random.Random(agent_seed)
+            policy = SampledBestResponsePolicy(rng=policy_rng)
+            agents[power] = ObservationBestResponseAgent(power, policy=policy)
+        else:
+            agents[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
+            )
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Standard Board After Round {round}",
+        stop_on_winner=stop_on_winner,
+    )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+
+    winner = states[-1].winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
+def run_standard_board_with_deepmind_turkey(
+    *,
+    weights_path: str | Path,
+    rounds: int = 100,
+    visualize: bool = False,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+    stop_on_winner: bool = True,
+    temperature: float = 0.2,
+) -> None:
+    """Run the standard board demo with Turkey controlled by DeepMind's SL agent.
+
+    Args:
+        weights_path: Filesystem path to ``sl_params.npz`` from the public release.
+        rounds: Maximum number of movement rounds to simulate.
+        visualize: Whether to open the visualization mesh at the end of the run.
+        seed: Optional PRNG seed shared across all agents for reproducibility.
+        hold_probability: Probability a random agent issues a hold order.
+        stop_on_winner: Stop early when a winner is detected.
+        temperature: Softmax temperature to apply when sampling from the SL policy.
+    """
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+
+    turkey = Power("Turkey")
+    turkey_seed = base_rng.randint(0, 2**32 - 1)
+    # Using ObservationBestResponseAgent instead of DeepMindSLAgent
+    turkey_agent = ObservationBestResponseAgent(turkey)
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        if power == turkey:
+            agents[power] = turkey_agent
+            continue
         agent_seed = base_rng.randint(0, 2**32 - 1)
         agents[power] = RandomAgent(
             power,
@@ -508,11 +485,15 @@ __all__ = [
     "interactive_visualize_standard_board",
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
+    "run_standard_board_with_deepmind_turkey",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
 ]
 
 
 if __name__ == "__main__":
-    print("Running standard board with all powers as random agents for 50 rounds...")
-    run_standard_board_with_random_agents(visualize=True)
+    print(
+        "Running standard board with England using the observation best-response policy "
+        "and other powers as random agents for 50 rounds..."
+    )
+    run_standard_board_with_random_agents(rounds=1000, visualize=True, policy_power=Power("England"))
