@@ -3,13 +3,11 @@ from __future__ import annotations
 import itertools
 import random
 from collections import OrderedDict
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple, Any
 
 import numpy as np
 
 from ..adjudication import Adjudicator
-from ..deepmind import build_observation
-from ..deepmind.observation import dm_utils, _POWER_TO_INDEX
 from ..orders import hold, move
 from ..state import GameState
 from ..types import Order, Power, Unit, UnitType, ProvinceType
@@ -89,10 +87,8 @@ class SampledBestResponsePolicy:
             test_state = state.copy()
             for loc, unit_type in combo:
                 test_state.units[loc] = Unit(power, loc, unit_type)
-            try:
-                observation = build_observation(test_state)
-            except (KeyError, ValueError):
-                observation = None
+            # Observation building not available, use None
+            observation = None
             score = self._evaluate_state(test_state, observation, power)
             if score > best_score:
                 best_score = score
@@ -203,30 +199,15 @@ class SampledBestResponsePolicy:
                 continue
             orders.append(hold(unit))
 
-        def build_callback(build_state: GameState):
-            build_quota = build_state.pending_builds.get(power, 0)
-            if build_quota <= 0:
-                return {}
-            choices = self.plan_builds(build_state, power, build_quota)
-            if not choices:
-                return {}
-            return {power: choices}
-
-        next_state, _ = Adjudicator(state).resolve(
-            orders,
-            build_callback=build_callback,
-        )
-        observation: Optional[dm_utils.Observation]
-        try:
-            observation = build_observation(next_state)
-        except (KeyError, ValueError):
-            observation = None
+        next_state, _ = Adjudicator(state).resolve(orders)
+        # Observation building not available, use None
+        observation: Optional[Any] = None
         return self._evaluate_state(next_state, observation, power)
 
     def _evaluate_state(
         self,
         state: GameState,
-        observation: Optional[dm_utils.Observation],
+        observation: Optional[Any],
         power: Power,
     ) -> float:
         threatened = float(state.centers_threatened(power))
@@ -235,14 +216,8 @@ class SampledBestResponsePolicy:
             sum(1 for controller in state.supply_center_control.values() if controller == power)
         )
 
-        if observation is not None:
-            power_index = _POWER_TO_INDEX.get(str(power), 0)
-            board = observation.board
-            unit_presence = float(
-                np.count_nonzero(board[:, dm_utils.OBSERVATION_UNIT_POWER_START + power_index])
-            )
-        else:
-            unit_presence = float(sum(1 for unit in state.units.values() if unit.power == power))
+        # Always use state-based unit count since observation is not available
+        unit_presence = float(sum(1 for unit in state.units.values() if unit.power == power))
 
         return (
             self.unit_weight * unit_presence

@@ -24,6 +24,7 @@ from .demo import (
     print_two_power_cooperation_report,
     demo_run_mesh_with_random_orders,
     demo_run_mesh_with_random_agents,
+    run_standard_board_with_deepmind_turkey,
 )
 from .viz.mesh import (
     visualize_state,
@@ -62,6 +63,7 @@ __all__ = [
     "print_two_power_cooperation_report",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
+    "run_standard_board_with_deepmind_turkey",
     "visualize_state",
     "visualize_state_mesh",
     "interactive_visualize_state_mesh",

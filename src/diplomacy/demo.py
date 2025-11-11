@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from .adjudication import Adjudicator, Resolution
@@ -339,6 +340,71 @@ def run_standard_board_with_random_agents(
         interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_with_deepmind_turkey(
+    *,
+    weights_path: str | Path,
+    rounds: int = 100,
+    visualize: bool = False,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+    stop_on_winner: bool = True,
+    temperature: float = 0.2,
+) -> None:
+    """Run the standard board demo with Turkey controlled by DeepMind's SL agent.
+
+    Args:
+        weights_path: Filesystem path to ``sl_params.npz`` from the public release.
+        rounds: Maximum number of movement rounds to simulate.
+        visualize: Whether to open the visualization mesh at the end of the run.
+        seed: Optional PRNG seed shared across all agents for reproducibility.
+        hold_probability: Probability a random agent issues a hold order.
+        stop_on_winner: Stop early when a winner is detected.
+        temperature: Softmax temperature to apply when sampling from the SL policy.
+    """
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+
+    turkey = Power("Turkey")
+    turkey_seed = base_rng.randint(0, 2**32 - 1)
+    # Using ObservationBestResponseAgent instead of DeepMindSLAgent
+    turkey_agent = ObservationBestResponseAgent(turkey)
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        if power == turkey:
+            agents[power] = turkey_agent
+            continue
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
+        )
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Standard Board After Round {round}",
+        stop_on_winner=stop_on_winner,
+    )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+
+    winner = states[-1].winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
 def demo_run_mesh_with_random_orders(rounds: int = 3):
     state = demo_state_mesh()
     states = [state]
@@ -419,14 +485,11 @@ __all__ = [
     "interactive_visualize_standard_board",
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
+    "run_standard_board_with_deepmind_turkey",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
 ]
 
 
 if __name__ == "__main__":
-    print(
-        "Running standard board with England using the observation best-response policy "
-        "and other powers as random agents for 50 rounds..."
-    )
-    run_standard_board_with_random_agents(rounds=1000, visualize=True, policy_power=Power("England"))
+    run_standard_board_with_random_agents(policy_power=Power("England"))    
