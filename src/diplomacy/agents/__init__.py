@@ -4,7 +4,6 @@ from .base import Agent
 from .scripted import ScriptedAgent, Directive
 from .random import RandomAgent
 from .best_response import ObservationBestResponseAgent, SampledBestResponsePolicy
-from .deepmind_sl import DeepMindSLAgent
 
 __all__ = [
     "Agent",
@@ -13,5 +12,4 @@ __all__ = [
     "Directive",
     "ObservationBestResponseAgent",
     "SampledBestResponsePolicy",
-    "DeepMindSLAgent",
 ]

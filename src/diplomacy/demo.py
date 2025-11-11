@@ -7,7 +7,6 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 from .adjudication import Adjudicator, Resolution
 from .agents import (
     Agent,
-    DeepMindSLAgent,
     ObservationBestResponseAgent,
     RandomAgent,
     SampledBestResponsePolicy,
@@ -368,12 +367,8 @@ def run_standard_board_with_deepmind_turkey(
 
     turkey = Power("Turkey")
     turkey_seed = base_rng.randint(0, 2**32 - 1)
-    turkey_agent = DeepMindSLAgent(
-        turkey,
-        weights_path=weights_path,
-        temperature=temperature,
-        rng_seed=turkey_seed,
-    )
+    # Using ObservationBestResponseAgent instead of DeepMindSLAgent
+    turkey_agent = ObservationBestResponseAgent(turkey)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -497,8 +492,4 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    print(
-        "Running standard board with England using the observation best-response policy "
-        "and other powers as random agents for 50 rounds..."
-    )
-    run_standard_board_with_random_agents(rounds=1000, visualize=True, policy_power=Power("England"))
+    run_standard_board_with_random_agents(policy_power=Power("England"))    

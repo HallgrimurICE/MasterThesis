@@ -18,7 +18,6 @@ from .agents import (
     Directive,
     ObservationBestResponseAgent,
     SampledBestResponsePolicy,
-    DeepMindSLAgent,
 )
 from .demo import (
     simulate_two_power_cooperation,
@@ -60,7 +59,6 @@ __all__ = [
     "Directive",
     "ObservationBestResponseAgent",
     "SampledBestResponsePolicy",
-    "DeepMindSLAgent",
     "simulate_two_power_cooperation",
     "print_two_power_cooperation_report",
     "demo_run_mesh_with_random_orders",
