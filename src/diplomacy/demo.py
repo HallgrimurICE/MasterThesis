@@ -4,7 +4,7 @@ import random
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from .adjudication import Adjudicator, Resolution
-from .agents import Agent, RandomAgent
+from .agents import Agent, RandomAgent, SBRNegotiator
 from .maps import (
     cooperative_attack_initial_state,
     demo_state_mesh,
@@ -200,6 +200,116 @@ def print_standard_board_demo() -> None:
 
     if not state.units:
         print("\n(No starting units added yet.)")
+
+
+def print_sbr_vs_random_summary(
+    trials: int = 100,
+    *,
+    rounds: int = 6,
+    seed: Optional[int] = 2024,
+    sbr_power_name: str = "England",
+) -> None:
+    """Run multiple games with one SBR agent against random opponents.
+
+    Parameters
+    ----------
+    trials:
+        Number of independent simulations to execute.
+    rounds:
+        Maximum number of movement phases to simulate in each trial.
+    seed:
+        Optional seed controlling the RNG used to initialise the agents.
+    sbr_power_name:
+        Name of the power that should be controlled by the SBR agent.
+    """
+
+    if trials <= 0:
+        raise ValueError("trials must be positive")
+    if rounds <= 0:
+        raise ValueError("rounds must be positive")
+
+    global_rng = random.Random(seed)
+    initial_state = standard_initial_state()
+    powers = sorted(initial_state.powers, key=str)
+    try:
+        sbr_power = next(power for power in powers if str(power) == sbr_power_name)
+    except StopIteration as exc:  # pragma: no cover - defensive
+        raise ValueError(
+            f"Power named '{sbr_power_name}' not present in the standard setup."
+        ) from exc
+
+    totals: Dict[Power, Dict[str, float]] = {
+        power: {"wins": 0.0, "sc": 0.0, "units": 0.0} for power in powers
+    }
+    draws = 0
+
+    for trial in range(1, trials + 1):
+        state = standard_initial_state()
+        agents: Dict[Power, Agent] = {}
+
+        agents[sbr_power] = SBRNegotiator(
+            sbr_power,
+            rng=random.Random(global_rng.randint(0, 2**32 - 1)),
+        )
+
+        for power in powers:
+            if power == sbr_power:
+                continue
+            agents[power] = RandomAgent(
+                power,
+                rng=random.Random(global_rng.randint(0, 2**32 - 1)),
+            )
+
+        states, _, _ = run_rounds_with_agents(
+            state,
+            agents,
+            rounds,
+            stop_on_winner=True,
+        )
+
+        final_state = states[-1]
+        winner = final_state.winner
+        if winner is None:
+            draws += 1
+
+        for power in powers:
+            if winner == power:
+                totals[power]["wins"] += 1.0
+
+            controlled = sum(
+                1 for owner in final_state.supply_center_control.values() if owner == power
+            )
+            totals[power]["sc"] += float(controlled)
+
+            unit_count = sum(1 for unit in final_state.units.values() if unit.power == power)
+            totals[power]["units"] += float(unit_count)
+
+    header = (
+        f"{'Power':<12} {'Agent':<16} {'Wins':>4} {'Win%':>6} "
+        f"{'Avg SC':>8} {'Avg Units':>10}"
+    )
+    print("=== SBR vs Random Summary ===")
+    print(
+        "One SBR agent (" + str(sbr_power) + ") against six Random agents on the standard map."
+    )
+    print(f"Trials: {trials}, Rounds per trial: {rounds}, Seed: {seed}")
+    print(header)
+    print("-" * len(header))
+
+    for power in powers:
+        agent_label = "SBRNegotiator" if power == sbr_power else "RandomAgent"
+        wins = int(totals[power]["wins"])
+        win_rate = totals[power]["wins"] / trials * 100.0
+        avg_sc = totals[power]["sc"] / trials
+        avg_units = totals[power]["units"] / trials
+        print(
+            f"{str(power):<12} {agent_label:<16} {wins:>4d} {win_rate:>6.1f} "
+            f"{avg_sc:>8.2f} {avg_units:>10.2f}"
+        )
+
+    draw_rate = draws / trials * 100.0
+    print("-" * len(header))
+    print(f"Draws / No winner: {draws} ({draw_rate:.1f}%)")
 
 
 def visualize_fleet_coast_demo() -> None:
