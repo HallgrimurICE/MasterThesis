@@ -9,12 +9,160 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 from ..adjudication import Adjudicator
 from ..orders import hold, move, retreat, support_hold, support_move
 from ..state import GameState
-from ..types import Order, Unit
+from ..types import Order, OrderType, Unit
 from .base import Agent
 
 
-class BaselineNegotiator(Agent):
-    """Simple SBR-inspired negotiator that evaluates sampled order sets.
+class NegotiatorBase(Agent):
+    """Common helpers shared by heuristic and SBR negotiators."""
+
+    def __init__(self, power, *, rng: Optional[random.Random] = None):
+        super().__init__(power)
+        self._rng = rng or random.Random()
+
+    def _graph_distance(self, start: str, goal: str, state: "GameState") -> int:
+        if start == goal:
+            return 0
+
+        visited = {start}
+        queue: deque[Tuple[str, int]] = deque([(start, 0)])
+        while queue:
+            current, distance = queue.popleft()
+            for neighbor in state.graph.neighbors(current):
+                if neighbor == goal:
+                    return distance + 1
+                if neighbor in visited:
+                    continue
+                visited.add(neighbor)
+                queue.append((neighbor, distance + 1))
+        return 3
+
+
+class BaselineNegotiator(NegotiatorBase):
+    """Heuristic negotiator that uses simple positional scoring.
+
+    The baseline agent keeps the original "good enough" behaviour from the
+    prototype: it prefers occupying or capturing supply centres, avoids friendly
+    fire, and keeps threatened units in place unless an attractive alternative
+    is available.  The stochastic tie-breaker ensures that games do not devolve
+    into the exact same move order every time.
+    """
+
+    def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
+        orders: List[Order] = []
+        for unit in state.units.values():
+            if unit.power != self.power:
+                continue
+            candidates = self._candidate_orders(unit, state)
+            best_score = float("-inf")
+            best: List[Order] = []
+            for option in candidates:
+                score = self._order_score(option, state)
+                if score > best_score:
+                    best_score = score
+                    best = [option]
+                elif math.isclose(score, best_score):
+                    best.append(option)
+            chosen = self._rng.choice(best)
+            orders.append(chosen)
+        return orders
+
+    def _plan_retreat_orders(
+        self, state: "GameState", retreat_index: int
+    ) -> List[Order]:
+        choices: List[Order] = []
+        for origin, pending in state.pending_retreats.items():
+            if pending.power != self.power:
+                continue
+            legal = state.legal_retreats_from(origin)
+            if not legal:
+                continue
+            unit = Unit(self.power, origin, pending.unit_type)
+            best_dest = max(
+                legal,
+                key=lambda dest: self._retreat_destination_score(unit, dest, state),
+            )
+            choices.append(retreat(unit, best_dest))
+        return choices
+
+    def _candidate_orders(self, unit: Unit, state: "GameState") -> List[Order]:
+        options = [hold(unit)]
+        for destination in state.legal_moves_from(unit.loc):
+            options.append(move(unit, destination))
+        return options
+
+    def _order_score(self, order: Order, state: "GameState") -> float:
+        unit = order.unit
+        if order.type == OrderType.HOLD:
+            province = state.board.get(unit.loc)
+            score = 0.1
+            if province and province.is_supply_center:
+                score += 1.1
+            if self._is_threatened(unit.loc, state):
+                score += 0.6
+            return score
+
+        if order.type != OrderType.MOVE or order.target is None:
+            return 0.0
+
+        destination = order.target
+        province = state.board.get(destination)
+        score = 0.0
+        if province and province.is_supply_center:
+            controller = state.supply_center_control.get(destination)
+            if controller == self.power:
+                score += 0.8
+            else:
+                score += 1.8
+
+        occupant = state.units.get(destination)
+        if occupant is None:
+            score += 0.3
+        elif occupant.power != self.power:
+            score += 0.9
+        else:
+            score -= 1.5
+
+        # Encourage movement away from nearby enemy concentrations.
+        threat_distance = self._nearest_enemy_distance(destination, state)
+        score += 0.2 * threat_distance
+
+        # Gentle random noise for tie-breaking between equivalent moves.
+        score += self._rng.random() * 0.01
+        return score
+
+    def _retreat_destination_score(
+        self, unit: Unit, destination: str, state: "GameState"
+    ) -> float:
+        score = 0.0
+        province = state.board.get(destination)
+        if province and province.is_supply_center:
+            score += 1.2
+        score += 0.2 * self._nearest_enemy_distance(destination, state)
+        score += self._rng.random() * 0.01
+        return score
+
+    def _nearest_enemy_distance(self, origin: str, state: "GameState") -> float:
+        distance = min(
+            (
+                self._graph_distance(origin, enemy.loc, state)
+                for enemy in state.units.values()
+                if enemy.power != self.power
+            ),
+            default=3,
+        )
+        return float(distance)
+
+    def _is_threatened(self, location: str, state: "GameState") -> bool:
+        for neighbor in state.graph.neighbors(location):
+            occupant = state.units.get(neighbor)
+            if occupant and occupant.power != self.power:
+                return True
+        return False
+
+
+class SBRNegotiator(NegotiatorBase):
+    """Sampled Best Response agent used for stronger automated opponents.
 
     The implementation is intentionally lightweight – it does not attempt to
     reproduce DeepMind's full negotiation stack, but it mirrors the high-level
@@ -46,14 +194,13 @@ class BaselineNegotiator(Agent):
         opponent_samples: int = 3,
         rng: Optional[random.Random] = None,
     ):
-        super().__init__(power)
+        super().__init__(power, rng=rng)
         if max_candidates <= 0:
             raise ValueError("max_candidates must be positive")
         if opponent_samples <= 0:
             raise ValueError("opponent_samples must be positive")
         self.max_candidates = max_candidates
         self.opponent_samples = opponent_samples
-        self._rng = rng or random.Random()
 
     def _plan_orders(self, state: "GameState", round_index: int) -> List[Order]:
         friendly_units = [
@@ -226,23 +373,6 @@ class BaselineNegotiator(Agent):
         base += 0.3 * enemy_distance
         return base
 
-    def _graph_distance(self, start: str, goal: str, state: "GameState") -> int:
-        if start == goal:
-            return 0
-
-        visited = {start}
-        queue: deque[Tuple[str, int]] = deque([(start, 0)])
-        while queue:
-            current, distance = queue.popleft()
-            for neighbor in state.graph.neighbors(current):
-                if neighbor == goal:
-                    return distance + 1
-                if neighbor in visited:
-                    continue
-                visited.add(neighbor)
-                queue.append((neighbor, distance + 1))
-        return 3
-
     @staticmethod
     def _order_identity(order: Order) -> Tuple:
         return (
@@ -259,4 +389,4 @@ class BaselineNegotiator(Agent):
         return tuple(str(order) for order in orders)
 
 
-__all__ = ["BaselineNegotiator"]
+__all__ = ["BaselineNegotiator", "SBRNegotiator"]
