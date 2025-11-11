@@ -301,5 +301,19 @@ class GameState:
                 return power
         return None
 
+    def available_build_sites(self, power: Power) -> List[str]:
+        """Return list of provinces where the given power can build units."""
+        candidates = []
+        for loc, controller in self.supply_center_control.items():
+            if controller == power:
+                province = self.board.get(loc)
+                if province is None:
+                    continue
+                if loc not in self.units:
+                    # Must be a home supply center
+                    if province.home_power == power:
+                        candidates.append(loc)
+        return candidates
+
 
 __all__ = ["GameState"]
