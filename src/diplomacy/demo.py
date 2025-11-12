@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+
+from best_response_agent import BestResponseAgent, StandardAdjudicatorAdapter
 
 from .adjudication import Adjudicator, Resolution
 from .agents import (
@@ -112,6 +114,41 @@ def _format_orders_with_actions(orders: Iterable[Order]) -> List[str]:
     for line, description in zip(order_lines, descriptions):
         formatted.append(f"{line.ljust(max_line)} | {description}")
     return formatted
+
+
+class RandomJointPolicy:
+    """Simple random policy that supports the best-response demonstration."""
+
+    def __init__(
+        self,
+        adjudicator: StandardAdjudicatorAdapter,
+        *,
+        seed: Optional[int] = None,
+    ) -> None:
+        self.adjudicator = adjudicator
+        self._rng = random.Random(seed)
+
+    def sample_joint_orders(
+        self,
+        state: GameState,
+        *,
+        exclude_power: Optional[Power] = None,
+        temperature: float = 0.7,
+    ) -> Dict[Unit, str]:
+        orders: Dict[Unit, str] = {}
+        clamp = max(0.0, min(1.0, temperature))
+        for unit in state.units.values():
+            if exclude_power is not None and unit.power == exclude_power:
+                continue
+            legal = self.adjudicator.legal_orders(state, unit)
+            if not legal:
+                continue
+            hold_orders = [order for order in legal if order.endswith(" H")]
+            if hold_orders and self._rng.random() > clamp:
+                orders[unit] = hold_orders[0]
+            else:
+                orders[unit] = self._rng.choice(legal)
+        return orders
 
 
 def print_two_power_cooperation_report() -> None:
@@ -405,6 +442,87 @@ def run_standard_board_with_deepmind_turkey(
         interactive_visualize_state_mesh(states, titles)
 
 
+def play_support_br_against_random_agents(
+    *,
+    player: Power = Power("France"),
+    rounds: int = 3,
+    seed: Optional[int] = None,
+    opponent_temperature: float = 0.9,
+    br_kwargs: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Demo: support-aware best response agent versus six random opponents."""
+
+    state = standard_initial_state()
+    if player not in state.powers:
+        raise ValueError(f"Unknown power {player!s} for the standard map")
+
+    adapter = StandardAdjudicatorAdapter()
+    policy = RandomJointPolicy(adapter, seed=seed)
+
+    def demo_value_fn(next_state: GameState, *, for_power: Power) -> float:
+        centers = sum(1 for ctrl in next_state.supply_center_control.values() if ctrl == for_power)
+        units = sum(1 for unit in next_state.units.values() if unit.power == for_power)
+        threatened = next_state.centers_threatened(for_power)
+        return 3.0 * centers + units - threatened
+
+    params = br_kwargs or {}
+    agent = BestResponseAgent(
+        base_policy=policy,
+        value_fn=demo_value_fn,
+        B_base=int(params.get("B_base", 24)),
+        C_cand=int(params.get("C_cand", 48)),
+        temperature_grid=tuple(params.get("temperature_grid", (0.4, 0.7, 1.0))),
+    )
+
+    print("=== Support-aware Best Response Demo ===")
+    print(f"Controlled power: {player}")
+    print(f"Rounds: {rounds}")
+    print("Opponents: six random agents sharing a stochastic joint policy")
+
+    for round_index in range(1, rounds + 1):
+        print(f"\nRound {round_index}")
+        player_orders = agent.act(state, player)
+        opponents = policy.sample_joint_orders(
+            state,
+            exclude_power=player,
+            temperature=opponent_temperature,
+        )
+        joint_orders: Dict[Unit, str] = dict(opponents)
+        joint_orders.update(player_orders)
+
+        power_orders: Dict[Power, List[str]] = {}
+        for unit, order in joint_orders.items():
+            power_orders.setdefault(unit.power, []).append(order)
+
+        for power in sorted(power_orders.keys(), key=str):
+            print(f"  {power}:")
+            for text in sorted(power_orders[power]):
+                print(f"    {text}")
+
+        state = adapter.apply_orders(state, joint_orders)
+
+        sc_summary = {
+            power: sum(1 for ctrl in state.supply_center_control.values() if ctrl == power)
+            for power in sorted(state.powers, key=str)
+        }
+        unit_summary = {
+            power: sum(1 for unit in state.units.values() if unit.power == power)
+            for power in sorted(state.powers, key=str)
+        }
+        print("Supply centers after adjudication:")
+        for power in sorted(sc_summary.keys(), key=str):
+            print(f"  {power}: {sc_summary[power]} centers, {unit_summary[power]} units")
+
+    leader = max(
+        state.powers,
+        key=lambda p: (
+            sum(1 for ctrl in state.supply_center_control.values() if ctrl == p),
+            sum(1 for unit in state.units.values() if unit.power == p),
+        ),
+    )
+    print(f"\nLeader after {rounds} rounds: {leader}")
+
+
 def demo_run_mesh_with_random_orders(rounds: int = 3):
     state = demo_state_mesh()
     states = [state]
@@ -486,6 +604,7 @@ __all__ = [
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
+    "play_support_br_against_random_agents",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
 ]
