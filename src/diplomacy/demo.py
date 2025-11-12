@@ -4,7 +4,7 @@ import random
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from best_response_agent import BestResponseAgent, StandardAdjudicatorAdapter
+from .agents.support_best_response import BestResponseAgent, StandardAdjudicatorAdapter
 
 from .adjudication import Adjudicator, Resolution
 from .agents import (

@@ -10,7 +10,7 @@ from diplomacy.demo import play_support_br_against_random_agents
 from diplomacy.state import GameState
 from diplomacy.types import Power, Province, Unit
 
-from best_response_agent import propose_bundles, sbr_with_supports
+from diplomacy.agents.support_best_response import propose_bundles, sbr_with_supports
 
 
 class FakeAdjudicator:
