@@ -332,12 +332,10 @@ class SampledBestResponsePolicy:
             orders.append(order)
             assigned.add(order.unit.loc)
 
-        for loc, unit in state.units.items():
-            if loc in assigned:
-                continue
-            orders.append(hold(unit))
-            assigned.add(loc)
-
+        # The adjudicator automatically supplies hold orders for any remaining
+        # units, so we can avoid generating them manually. This keeps the
+        # resolution step lean, which is important because it runs for every
+        # candidate joint order we evaluate.
         next_state, _ = Adjudicator(state).resolve(orders)
         observation: Optional[Any] = None
         current_score = self._evaluate_state(next_state, observation, power)
