@@ -19,13 +19,19 @@ class SampledBestResponsePolicy:
     evaluates them against a set of stochastic opponent base profiles,
     mirroring the sampled-best-response procedure. Candidate sets are limited
     for tractability and scored with the linear value weights already tuned for
-    the project.
+    the project. When ``rollout_depth`` exceeds one the policy recursively
+    re-applies the search to propagate value estimates across successive
+    seasons, discounting deeper plies. The same rollout logic is reused when
+    choosing between army and fleet builds so coastal decisions consider their
+    downstream order quality.
     """
 
     def __init__(
         self,
         *,
         rollout_limit: int = 64,
+        rollout_depth: int = 1,
+        rollout_discount: float = 0.9,
         rng: random.Random | None = None,
         unit_weight: float = 1.0,
         supply_center_weight: float = 5.0,
@@ -38,10 +44,14 @@ class SampledBestResponsePolicy:
         self.supply_center_weight = supply_center_weight
         self.threatened_penalty = threatened_penalty
         self.base_profile_count = max(1, base_profile_count)
+        self.rollout_depth = max(1, rollout_depth)
+        self.rollout_discount = max(0.0, min(1.0, rollout_discount))
 
     def plan_orders(self, state: GameState, power: Power) -> List[Order]:
         candidate_map = self._build_candidate_order_map(state, power)
-        best_orders, _ = self._select_best_orders(state, power, candidate_map)
+        best_orders, _ = self._select_best_orders(
+            state, power, candidate_map, depth=self.rollout_depth
+        )
         return best_orders
 
     def _candidate_orders(self, state: GameState, unit: Unit) -> List[Order]:
@@ -70,7 +80,9 @@ class SampledBestResponsePolicy:
             for loc, unit_type in combo:
                 test_state.units[loc] = Unit(power, loc, unit_type)
             candidate_map = self._build_candidate_order_map(test_state, power)
-            _, score = self._select_best_orders(test_state, power, candidate_map)
+            _, score = self._select_best_orders(
+                test_state, power, candidate_map, depth=self.rollout_depth
+            )
             if score > best_score:
                 best_score = score
                 best_choice = combo
@@ -95,7 +107,12 @@ class SampledBestResponsePolicy:
         state: GameState,
         power: Power,
         candidate_map: "OrderedDict[str, List[Order]]" | None = None,
+        *,
+        depth: int | None = None,
     ) -> Tuple[List[Order], float]:
+        if depth is None:
+            depth = self.rollout_depth
+        depth = max(1, depth)
         if candidate_map is None:
             candidate_map = self._build_candidate_order_map(state, power)
 
@@ -115,7 +132,7 @@ class SampledBestResponsePolicy:
         best_orders: Sequence[Order] | None = None
         for combo in combos:
             score = self._estimate_combo_value(
-                state, power, unit_order, combo, base_profiles
+                state, power, unit_order, combo, base_profiles, depth
             )
             if score > best_score:
                 best_score = score
@@ -283,13 +300,18 @@ class SampledBestResponsePolicy:
         unit_order: Sequence[str],
         combo: Sequence[Order],
         base_profiles: Sequence[Sequence[Order]],
+        depth: int,
     ) -> float:
         if not base_profiles:
-            return self._resolve_and_score(state, power, unit_order, combo, tuple())
+            return self._resolve_and_score(
+                state, power, unit_order, combo, tuple(), depth
+            )
 
         total = 0.0
         for profile in base_profiles:
-            total += self._resolve_and_score(state, power, unit_order, combo, profile)
+            total += self._resolve_and_score(
+                state, power, unit_order, combo, profile, depth
+            )
         return total / float(len(base_profiles))
 
     def _resolve_and_score(
@@ -299,6 +321,7 @@ class SampledBestResponsePolicy:
         unit_order: Sequence[str],
         combo: Sequence[Order],
         opponent_orders: Sequence[Order],
+        depth: int,
     ) -> float:
         assigned: set[str] = set(unit_order)
         orders: List[Order] = list(combo)
@@ -317,7 +340,19 @@ class SampledBestResponsePolicy:
 
         next_state, _ = Adjudicator(state).resolve(orders)
         observation: Optional[Any] = None
-        return self._evaluate_state(next_state, observation, power)
+        current_score = self._evaluate_state(next_state, observation, power)
+
+        if depth <= 1:
+            return current_score
+
+        candidate_map = self._build_candidate_order_map(next_state, power)
+        if not candidate_map:
+            return current_score
+
+        _, future_score = self._select_best_orders(
+            next_state, power, candidate_map, depth=depth - 1
+        )
+        return current_score + self.rollout_discount * future_score
 
     def _evaluate_state(
         self,
