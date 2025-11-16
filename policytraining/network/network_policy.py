@@ -18,7 +18,7 @@
 from typing import Any, Sequence, Tuple
 import numpy as np
 
-from environment import observation_utils as utils
+from policytraining.environment import observation_utils as utils
 
 
 class Policy:
