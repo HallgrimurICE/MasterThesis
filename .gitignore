@@ -1,2 +1,4 @@
 *.npz
+*.py[cod]
+__pycache__/
 data/
