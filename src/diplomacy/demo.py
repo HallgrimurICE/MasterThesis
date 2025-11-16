@@ -17,6 +17,7 @@ from .maps import (
     fleet_coast_demo_state,
     standard_initial_state,
 )
+from .agents.sl_agent import DeepMindSlAgent    
 from .orders import hold, move, support_hold, support_move
 from .simulation import run_rounds_with_agents
 from .state import GameState
@@ -367,8 +368,14 @@ def run_standard_board_with_deepmind_turkey(
 
     turkey = Power("Turkey")
     turkey_seed = base_rng.randint(0, 2**32 - 1)
-    # Using ObservationBestResponseAgent instead of DeepMindSLAgent
-    turkey_agent = ObservationBestResponseAgent(turkey)
+
+    # Use the DeepMind SL agent we just wrote
+    turkey_agent = DeepMindSlAgent(
+        power=turkey,
+        sl_params_path=str(weights_path),
+        rng_seed=turkey_seed,
+        temperature=temperature,
+    )
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -492,4 +499,9 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    run_standard_board_with_random_agents(policy_power=Power("England"))    
+    run_standard_board_with_deepmind_turkey(
+        weights_path=Path("data/sl_params.npz"),
+        rounds=50,
+        visualize=False,
+        seed=123,
+)   

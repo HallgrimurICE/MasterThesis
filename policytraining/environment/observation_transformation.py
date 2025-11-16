@@ -19,7 +19,7 @@ import collections
 import enum
 from typing import Any, Dict, NamedTuple, Optional, Sequence, Tuple
 
-# from dm_env import specs
+from dm_env import specs
 import jax.numpy as jnp
 import numpy as np
 import tree
