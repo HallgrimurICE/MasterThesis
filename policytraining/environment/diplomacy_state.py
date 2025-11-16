@@ -19,7 +19,7 @@ from typing import Sequence
 import numpy as np
 import typing_extensions
 
-from environment import observation_utils as utils
+from policytraining.environment import observation_utils as utils
 
 
 class DiplomacyState(typing_extensions.Protocol):

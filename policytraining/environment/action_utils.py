@@ -17,8 +17,8 @@
 from typing import Sequence, Tuple, Union
 import numpy as np
 
-from environment import action_list
-from environment import observation_utils as utils
+from policytraining.environment import action_list
+from policytraining.environment import observation_utils as utils
 
 # Actions are represented using 64 bit integers. In particular bits 0-31 contain
 # the action order, represented using the following format:
