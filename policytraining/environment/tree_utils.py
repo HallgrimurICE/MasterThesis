@@ -50,8 +50,12 @@ def _tree_apply_over_list(list_of_trees, fn):
     new_list = [flat_tree[position] for flat_tree in list_of_flat_trees]
     new_list = [x for x in new_list if x is not None]
     flat_tree_of_stacks.append(fn(new_list))
-  return tree.unflatten_as(
-      structure=list_of_trees[0], flat_sequence=flat_tree_of_stacks)
+  # `tree.unflatten_as` expects positional arguments. The implementation in the
+  # original DeepMind release used keyword arguments, but newer versions of the
+  # `tree` package do not accept them, causing a TypeError when calling the
+  # Diplomacy scripts. Passing the arguments positionally keeps compatibility
+  # with both versions.
+  return tree.unflatten_as(list_of_trees[0], flat_tree_of_stacks)
 
 
 def tree_stack(list_of_trees, axis=0):
