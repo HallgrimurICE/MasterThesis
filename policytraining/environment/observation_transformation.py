@@ -66,6 +66,10 @@ def update_state(
       actions_since_previous_moves_phase, axis=1, shift=-1)
   actions_since_previous_moves_phase[:, -1] = -1
 
+  board_state_for_actions = last_board_state
+  if board_state_for_actions is None:
+    board_state_for_actions = observation.board
+
   for action in observation.last_actions:
     order_type, (province_id, coast), _, _ = action_utils.action_breakdown(
         action)
@@ -80,8 +84,14 @@ def update_state(
       else:
         area = utils.area_from_province_id_and_area_index(province_id, 0)
     else:
-      area = utils.area_id_for_unit_in_province_id(province_id,
-                                                   last_board_state)
+      try:
+        area = utils.area_id_for_unit_in_province_id(
+            province_id, board_state_for_actions)
+      except ValueError:
+        # Some historical actions (e.g. removals) may refer to units that are
+        # no longer present on the provided board state. In that case we skip
+        # recording the action because there is no area to attribute it to.
+        continue
     assert actions_since_previous_moves_phase[area, -1] == -1
     actions_since_previous_moves_phase[area, -1] = action >> 48
 
@@ -250,12 +260,12 @@ class GeneralObservationTransformer:
           observation.board, dtype=np.float32)
 
     if self.actions_since_last_moves_phase:
-      initial_observation['actions_since_last_moves_phase'] = np.cast[np.int32](
-          next_state.actions_since_previous_moves_phase)
+      initial_observation['actions_since_last_moves_phase'] = np.asarray(
+          next_state.actions_since_previous_moves_phase, dtype=np.int32)
 
     if self.season:
-      initial_observation['season'] = np.cast[np.int32](
-          observation.season.value)
+      initial_observation['season'] = np.asarray(
+          observation.season.value, dtype=np.int32)
 
     if self.build_numbers:
       initial_observation['build_numbers'] = np.array(

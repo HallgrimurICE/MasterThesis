@@ -1,17 +1,13 @@
-# diplomacy/deepmind/actions.py
-
 from __future__ import annotations
 
-from typing import Sequence, List
+from typing import List, Sequence
 
 import numpy as np
 
-from diplomacy.state import GameState
-from diplomacy.types import Power
+from ..state import GameState
+from ..types import Order, OrderType, Power
 
-# DeepMind side: action encoding utilities, province ordering, etc.
-# You will need to create these modules (or adapt from the DM repo).
-from diplomacy.deepmind.observation import province_order
+from .observation import NUM_ACTIONS, province_order
 
 
 def _ordered_powers(state: GameState) -> List[Power]:
@@ -45,7 +41,7 @@ def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
     #   - For each power, return "all actions" (no masking).
     #   - This is suboptimal for performance but lets you test that the network runs.
     #
-    all_action_indices = np.arange(province_order.NUM_ACTIONS, dtype=np.int32)
+    all_action_indices = np.arange(NUM_ACTIONS, dtype=np.int32)
 
     legal_actions: List[np.ndarray] = []
     for _p in powers:
@@ -54,3 +50,24 @@ def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
         legal_actions.append(all_action_indices)
 
     return legal_actions
+
+
+def decode_actions_to_orders(
+    state: GameState,
+    power: Power,
+    action_indices: Sequence[int],
+) -> List[Order]:
+    """Convert policy-chosen action indices into engine Order objects.
+
+    The full DeepMind action decoding logic is quite involved.  For now we
+    conservatively map every action to a HOLD order for each of the power's
+    units so that callers receive a syntactically valid order list.
+    """
+
+    del action_indices  # Currently unused in the stub implementation.
+    orders: List[Order] = []
+    for unit in state.units.values():
+        if unit.power != power:
+            continue
+        orders.append(Order(unit=unit, type=OrderType.HOLD))
+    return orders

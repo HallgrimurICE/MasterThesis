@@ -12,8 +12,8 @@ from policytraining.run_sl import make_sl_policy
 
 # These are the DeepMind-style helpers you are (or will be) writing.
 # They should live under diplomacy/deepmind/ and map your GameState to DM obs/actions.
-from deepmind.build_observation import build_observation
-from deepmind.actions import (
+from ..deepmind.build_observation import build_observation
+from ..deepmind.actions import (
     legal_actions_from_state,     # (state: GameState) -> Sequence[np.ndarray]
     decode_actions_to_orders,     # (state, power, action_indices) -> List[Order]
 )

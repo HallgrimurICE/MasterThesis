@@ -22,11 +22,11 @@ if __package__ in {None, ""}:
 import argparse
 from pathlib import Path
 
-from diplomacy.maps import standard_board
-from diplomacy.state import GameState
-from diplomacy.types import Power, Unit, UnitType
+from .maps import standard_board
+from .state import GameState
+from .types import Power, Unit, UnitType
 
-from diplomacy.deepmind import build_observation, legal_actions_from_state
+from .deepmind import build_observation, legal_actions_from_state
 from policytraining.run_sl import make_sl_policy
 
 
@@ -63,7 +63,7 @@ def main(sl_params_path: Path) -> None:
 
 def _default_params_path() -> Path:
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / "data" / "sl_params.npz"
+    return project_root / "policytraining" / "data" / "sl_params.npz"
 
 
 if __name__ == "__main__":
