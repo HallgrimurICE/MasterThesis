@@ -47,6 +47,6 @@ def make_sl_policy(sl_params_path: str, rng_seed: int = 0):
 
 if __name__ == "__main__":
     # Simple smoke test: just try to construct the policy.
-    sl_path = "data/sl_params.npz"  # adjust path if needed
+    sl_path = "policytraining/data/sl_params.npz"  # adjust path if needed
     policy = make_sl_policy(sl_path)
     print("SL policy created successfully:", type(policy))
