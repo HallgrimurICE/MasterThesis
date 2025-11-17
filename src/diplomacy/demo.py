@@ -500,7 +500,7 @@ __all__ = [
 
 if __name__ == "__main__":
     run_standard_board_with_deepmind_turkey(
-        weights_path=Path("data/sl_params.npz"),
+        weights_path=Path("C:/Users/hat/Documents/Thesis/MasterThesis/policytraining/data/sl_params.npz"),
         rounds=50,
         visualize=False,
         seed=123,
