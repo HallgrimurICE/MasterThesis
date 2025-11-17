@@ -363,6 +363,14 @@ def run_standard_board_with_deepmind_turkey(
         temperature: Softmax temperature to apply when sampling from the SL policy.
     """
 
+    weights_path = Path(weights_path)
+    if not weights_path.is_file():
+        raise FileNotFoundError(
+            "Could not find supervised-learning parameters at "
+            f"{weights_path}. Download DeepMind's sl_params.npz (see diplomacy-main/README.md) "
+            "and pass its full path via the weights_path argument."
+        )
+
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
@@ -499,9 +507,17 @@ __all__ = [
 
 
 if __name__ == "__main__":
+    default_weights = Path("policytraining/data/sl_params.npz")
+    if not default_weights.is_file():
+        raise SystemExit(
+            "Default weights expected at "
+            f"{default_weights}. Download DeepMind's sl_params.npz (see diplomacy-main/README.md) "
+            "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
+        )
+
     run_standard_board_with_deepmind_turkey(
-        weights_path=Path("data/sl_params.npz"),
+        weights_path=default_weights,
         rounds=50,
         visualize=False,
         seed=123,
-)   
+    )
