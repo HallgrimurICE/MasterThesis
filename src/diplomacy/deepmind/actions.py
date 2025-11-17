@@ -7,7 +7,7 @@ import numpy as np
 from ..state import GameState
 from ..types import Order, OrderType, Power
 
-from .observation import NUM_ACTIONS, province_order
+from .observation import POSSIBLE_ACTIONS, province_order
 
 
 def _ordered_powers(state: GameState) -> List[Power]:
@@ -17,14 +17,15 @@ def _ordered_powers(state: GameState) -> List[Power]:
 
 def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
     """
-    Return legal action indices in DeepMind's action space for each player.
+    Return legal action encodings in DeepMind's action space for each player.
 
     First milestone: only needed so the network can pick *some* actions.
 
     Returns:
         list of np.ndarray, length = num_players.
-        Each array is the list of integer indices into the global DM action space
-        that are legal for that player in the current phase.
+        Each array contains the encoded actions (64-bit ints) drawn from
+        ``policytraining.environment.action_list.POSSIBLE_ACTIONS`` that are
+        legal for that player in the current phase.
     """
 
     powers = _ordered_powers(state)
@@ -41,13 +42,19 @@ def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
     #   - For each power, return "all actions" (no masking).
     #   - This is suboptimal for performance but lets you test that the network runs.
     #
-    all_action_indices = np.arange(NUM_ACTIONS, dtype=np.int32)
+    # NOTE: the "legal actions" need to be the *encoded orders* from
+    # policytraining's action list, not merely their positional indices.  Feeding
+    # indices confuses the observation transformer (it decodes the numbers back
+    # into orders and finds nonsense), which manifested as "No legal actions found
+    # for area XX" when trying to run the SL agent demo.
+
+    all_actions = POSSIBLE_ACTIONS.astype(np.int64, copy=False)
 
     legal_actions: List[np.ndarray] = []
     for _p in powers:
         # SUPER ROUGH: treat every action as legal for now.
         # Later, restrict based on which units/powers are on the board.
-        legal_actions.append(all_action_indices)
+        legal_actions.append(all_actions.copy())
 
     return legal_actions
 
