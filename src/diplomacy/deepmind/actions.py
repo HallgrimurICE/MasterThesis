@@ -16,14 +16,25 @@ _PROVINCE_NAME_TO_ID = province_order.province_name_to_id(
     province_order.MapMDF.STANDARD_MAP
 )
 
+# The DeepMind map uses a few different abbreviations from the engine board
+# (e.g. English Channel is ``ECH`` instead of ``ENG``).  Provide aliases so we
+# can translate engine locations into the ids used by the SL observation space.
+_PROVINCE_ALIASES = {
+    "ENG": "ECH",
+    "LYO": "GOL",
+    "BOT": "GOB",
+}
+
 
 def _normalise_name(name: str) -> str:
     return name.upper().strip()
 
 
 def _province_id(name: str) -> int:
+    normalised = _normalise_name(name)
+    lookup = _PROVINCE_ALIASES.get(normalised, normalised)
     try:
-        return _PROVINCE_NAME_TO_ID[_normalise_name(name)]
+        return _PROVINCE_NAME_TO_ID[lookup]
     except KeyError as exc:  # pragma: no cover - sanity guard
         raise KeyError(f"Unknown province name '{name}'") from exc
 
