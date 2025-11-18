@@ -62,6 +62,8 @@ def _build_action_tables() -> Tuple[
     Dict[Tuple[int, int], int],
     Dict[Tuple[int, int], int],
     Dict[int, int],
+    Dict[Tuple[int, int], int],
+    Dict[Tuple[int, int, int], int],
 ]:
     """Index DeepMind's master action list for quick lookups.
 
@@ -73,9 +75,11 @@ def _build_action_tables() -> Tuple[
     move_actions: Dict[Tuple[int, int], int] = {}
     retreat_actions: Dict[Tuple[int, int], int] = {}
     disband_actions: Dict[int, int] = {}
+    support_hold_actions: Dict[Tuple[int, int], int] = {}
+    support_move_actions: Dict[Tuple[int, int, int], int] = {}
 
     for encoded in POSSIBLE_ACTIONS.astype(np.int64, copy=False):
-        order, src, target, _third = action_utils.action_breakdown(int(encoded))
+        order, src, target, third = action_utils.action_breakdown(int(encoded))
         src_id = int(src[0])
         if order == action_utils.HOLD:
             hold_actions.setdefault(src_id, int(encoded))
@@ -87,29 +91,62 @@ def _build_action_tables() -> Tuple[
             retreat_actions.setdefault((src_id, tgt_id), int(encoded))
         elif order == action_utils.DISBAND:
             disband_actions.setdefault(src_id, int(encoded))
+        elif order == action_utils.SUPPORT_HOLD:
+            tgt_id = int(target[0])
+            support_hold_actions.setdefault((src_id, tgt_id), int(encoded))
+        elif order == action_utils.SUPPORT_MOVE_TO:
+            tgt_id = int(target[0])
+            support_src_id = int(third[0])
+            support_move_actions.setdefault((src_id, support_src_id, tgt_id),
+                                            int(encoded))
 
-    return hold_actions, move_actions, retreat_actions, disband_actions
+    return (hold_actions, move_actions, retreat_actions, disband_actions,
+            support_hold_actions, support_move_actions)
 
 
-_HOLD_ACTIONS, _MOVE_ACTIONS, _RETREAT_ACTIONS, _DISBAND_ACTIONS = (
-    _build_action_tables()
-)
+(_HOLD_ACTIONS, _MOVE_ACTIONS, _RETREAT_ACTIONS, _DISBAND_ACTIONS,
+ _SUPPORT_HOLD_ACTIONS,
+ _SUPPORT_MOVE_ACTIONS,) = _build_action_tables()
 
 
 def _movement_action_encodings(state: GameState, *, power: Power) -> List[int]:
     actions: List[int] = []
-    for unit in state.units.values():
+    units = list(state.units.values())
+    legal_moves_by_loc = {
+        unit.loc: state.legal_moves_from(unit.loc) for unit in units
+    }
+    province_id_by_loc = {unit.loc: _province_id(unit.loc) for unit in units}
+    for unit in units:
         if unit.power != power:
             continue
-        src_id = _province_id(unit.loc)
+        src_id = province_id_by_loc[unit.loc]
         hold_action = _HOLD_ACTIONS.get(src_id)
         if hold_action is not None:
             actions.append(hold_action)
-        for destination in state.legal_moves_from(unit.loc):
+        for destination in legal_moves_by_loc.get(unit.loc, []):
             tgt_id = _province_id(destination)
             move_action = _MOVE_ACTIONS.get((src_id, tgt_id))
             if move_action is not None:
                 actions.append(move_action)
+        neighbours = list(state.graph.neighbors(unit.loc))
+        for neighbour in neighbours:
+            if neighbour not in state.units:
+                continue
+            tgt_id = _province_id(neighbour)
+            support_hold_action = _SUPPORT_HOLD_ACTIONS.get((src_id, tgt_id))
+            if support_hold_action is not None:
+                actions.append(support_hold_action)
+        for destination in neighbours:
+            dest_id = _province_id(destination)
+            for other_loc, other_moves in legal_moves_by_loc.items():
+                if other_loc == unit.loc:
+                    continue
+                if destination not in other_moves:
+                    continue
+                support_move_action = _SUPPORT_MOVE_ACTIONS.get(
+                    (src_id, province_id_by_loc[other_loc], dest_id))
+                if support_move_action is not None:
+                    actions.append(support_move_action)
     return actions
 
 
