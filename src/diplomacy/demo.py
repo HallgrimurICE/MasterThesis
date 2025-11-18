@@ -507,7 +507,7 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    default_weights = Path("policytraining/data/sl_params.npz")
+    default_weights = Path("data/fppi2_params.npz")
     if not default_weights.is_file():
         raise SystemExit(
             "Default weights expected at "
@@ -518,6 +518,6 @@ if __name__ == "__main__":
     run_standard_board_with_deepmind_turkey(
         weights_path=default_weights,
         rounds=50,
-        visualize=False,
+        visualize=True,
         seed=123,
     )
