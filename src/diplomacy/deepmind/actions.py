@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 
@@ -9,10 +9,101 @@ from ..types import Order, OrderType, Power
 
 from .observation import POSSIBLE_ACTIONS, province_order
 
+from policytraining.environment import action_utils
+
+
+_PROVINCE_NAME_TO_ID = province_order.province_name_to_id(
+    province_order.MapMDF.STANDARD_MAP
+)
+
+
+def _normalise_name(name: str) -> str:
+    return name.upper().strip()
+
+
+def _province_id(name: str) -> int:
+    try:
+        return _PROVINCE_NAME_TO_ID[_normalise_name(name)]
+    except KeyError as exc:  # pragma: no cover - sanity guard
+        raise KeyError(f"Unknown province name '{name}'") from exc
+
 
 def _ordered_powers(state: GameState) -> List[Power]:
     """Define a consistent ordering of powers (players)."""
     return sorted(state.powers, key=str)
+
+
+def _build_action_tables() -> Tuple[
+    Dict[int, int],
+    Dict[Tuple[int, int], int],
+    Dict[Tuple[int, int], int],
+    Dict[int, int],
+]:
+    """Index DeepMind's master action list for quick lookups.
+
+    Returns dictionaries mapping the (order, relevant provinces) combinations we
+    need into the encoded 64-bit action values expected by the SL network.
+    """
+
+    hold_actions: Dict[int, int] = {}
+    move_actions: Dict[Tuple[int, int], int] = {}
+    retreat_actions: Dict[Tuple[int, int], int] = {}
+    disband_actions: Dict[int, int] = {}
+
+    for encoded in POSSIBLE_ACTIONS.astype(np.int64, copy=False):
+        order, src, target, _third = action_utils.action_breakdown(int(encoded))
+        src_id = int(src[0])
+        if order == action_utils.HOLD:
+            hold_actions.setdefault(src_id, int(encoded))
+        elif order == action_utils.MOVE_TO:
+            tgt_id = int(target[0])
+            move_actions.setdefault((src_id, tgt_id), int(encoded))
+        elif order == action_utils.RETREAT_TO:
+            tgt_id = int(target[0])
+            retreat_actions.setdefault((src_id, tgt_id), int(encoded))
+        elif order == action_utils.DISBAND:
+            disband_actions.setdefault(src_id, int(encoded))
+
+    return hold_actions, move_actions, retreat_actions, disband_actions
+
+
+_HOLD_ACTIONS, _MOVE_ACTIONS, _RETREAT_ACTIONS, _DISBAND_ACTIONS = (
+    _build_action_tables()
+)
+
+
+def _movement_action_encodings(state: GameState, *, power: Power) -> List[int]:
+    actions: List[int] = []
+    for unit in state.units.values():
+        if unit.power != power:
+            continue
+        src_id = _province_id(unit.loc)
+        hold_action = _HOLD_ACTIONS.get(src_id)
+        if hold_action is not None:
+            actions.append(hold_action)
+        for destination in state.legal_moves_from(unit.loc):
+            tgt_id = _province_id(destination)
+            move_action = _MOVE_ACTIONS.get((src_id, tgt_id))
+            if move_action is not None:
+                actions.append(move_action)
+    return actions
+
+
+def _retreat_action_encodings(state: GameState, *, power: Power) -> List[int]:
+    actions: List[int] = []
+    for province, unit in state.pending_retreats.items():
+        if unit.power != power:
+            continue
+        src_id = _province_id(province)
+        for destination in state.legal_retreats_from(province):
+            tgt_id = _province_id(destination)
+            retreat_action = _RETREAT_ACTIONS.get((src_id, tgt_id))
+            if retreat_action is not None:
+                actions.append(retreat_action)
+        disband_action = _DISBAND_ACTIONS.get(src_id)
+        if disband_action is not None:
+            actions.append(disband_action)
+    return actions
 
 
 def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
@@ -29,32 +120,16 @@ def legal_actions_from_state(state: GameState) -> Sequence[np.ndarray]:
     """
 
     powers = _ordered_powers(state)
-    num_players = len(powers)
-
-    # DeepMind's action space is "all possible orders for all units
-    # in all areas", enumerated as 0..N-1 using a fixed ordering over
-    # provinces and order templates.
-    #
-    # You will have to build an `all_actions` list (or reuse one from the DM repo)
-    # and then select those that are compatible with the current GameState.
-    #
-    # For a *minimal* running version, you can do something much simpler:
-    #   - For each power, return "all actions" (no masking).
-    #   - This is suboptimal for performance but lets you test that the network runs.
-    #
-    # NOTE: the "legal actions" need to be the *encoded orders* from
-    # policytraining's action list, not merely their positional indices.  Feeding
-    # indices confuses the observation transformer (it decodes the numbers back
-    # into orders and finds nonsense), which manifested as "No legal actions found
-    # for area XX" when trying to run the SL agent demo.
-
-    all_actions = POSSIBLE_ACTIONS.astype(np.int64, copy=False)
-
     legal_actions: List[np.ndarray] = []
-    for _p in powers:
-        # SUPER ROUGH: treat every action as legal for now.
-        # Later, restrict based on which units/powers are on the board.
-        legal_actions.append(all_actions.copy())
+
+    is_retreat_phase = state.phase.name.endswith("RETREAT")
+
+    for power in powers:
+        if is_retreat_phase:
+            encodings = _retreat_action_encodings(state, power=power)
+        else:
+            encodings = _movement_action_encodings(state, power=power)
+        legal_actions.append(np.asarray(encodings, dtype=np.int64))
 
     return legal_actions
 
