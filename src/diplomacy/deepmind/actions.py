@@ -15,9 +15,9 @@ from policytraining.environment import action_utils
 _PROVINCE_NAME_TO_ID = province_order.province_name_to_id(
     province_order.MapMDF.STANDARD_MAP
 )
-_PROVINCE_ID_TO_NAME = province_order.province_id_to_name(
-    province_order.MapMDF.STANDARD_MAP
-)
+_PROVINCE_ID_TO_NAME = {
+    province_id: name for name, province_id in _PROVINCE_NAME_TO_ID.items()
+}
 
 # The DeepMind map uses a few different abbreviations from the engine board
 # (e.g. English Channel is ``ECH`` instead of ``ENG``).  Provide aliases so we
