@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -15,6 +15,9 @@ from policytraining.environment import action_utils
 _PROVINCE_NAME_TO_ID = province_order.province_name_to_id(
     province_order.MapMDF.STANDARD_MAP
 )
+_PROVINCE_ID_TO_NAME = province_order.province_id_to_name(
+    province_order.MapMDF.STANDARD_MAP
+)
 
 # The DeepMind map uses a few different abbreviations from the engine board
 # (e.g. English Channel is ``ECH`` instead of ``ENG``).  Provide aliases so we
@@ -24,6 +27,8 @@ _PROVINCE_ALIASES = {
     "LYO": "GOL",
     "BOT": "GOB",
 }
+
+_ENGINE_NAME_OVERRIDES = {deep: eng for eng, deep in _PROVINCE_ALIASES.items()}
 
 
 def _normalise_name(name: str) -> str:
@@ -37,6 +42,14 @@ def _province_id(name: str) -> int:
         return _PROVINCE_NAME_TO_ID[lookup]
     except KeyError as exc:  # pragma: no cover - sanity guard
         raise KeyError(f"Unknown province name '{name}'") from exc
+
+
+def _engine_province_name(province_id: int) -> str:
+    """Map a DeepMind province id back to the engine's canonical name."""
+
+    deep_name = _PROVINCE_ID_TO_NAME[province_id]
+    base = deep_name.split("_")[0]
+    return _ENGINE_NAME_OVERRIDES.get(base, base)
 
 
 def _ordered_powers(state: GameState) -> List[Power]:
@@ -152,15 +165,70 @@ def decode_actions_to_orders(
 ) -> List[Order]:
     """Convert policy-chosen action indices into engine Order objects.
 
-    The full DeepMind action decoding logic is quite involved.  For now we
-    conservatively map every action to a HOLD order for each of the power's
-    units so that callers receive a syntactically valid order list.
+    The DeepMind policy emits encoded actions drawn from the master catalogue in
+    ``policytraining.environment.action_list``.  Decode those 64-bit integers
+    back into board-relative orders so that the adjudicator can process them.
     """
+    orders_by_loc: Dict[str, Order] = {}
 
-    del action_indices  # Currently unused in the stub implementation.
-    orders: List[Order] = []
+    for encoded in action_indices:
+        order = _decode_action(state, power, int(encoded))
+        if order is None:
+            continue
+        loc = order.unit.loc
+        if loc in orders_by_loc:
+            continue
+        orders_by_loc[loc] = order
+
+    # Ensure every unit receives at least a hold so the adjudicator always sees
+    # a complete order set.
     for unit in state.units.values():
         if unit.power != power:
             continue
-        orders.append(Order(unit=unit, type=OrderType.HOLD))
-    return orders
+        orders_by_loc.setdefault(unit.loc, Order(unit=unit, type=OrderType.HOLD))
+
+    return list(orders_by_loc.values())
+
+
+def _decode_action(state: GameState, power: Power, encoded: int) -> Optional[Order]:
+    order_code, src, target, third = action_utils.action_breakdown(encoded)
+    src_name = _engine_province_name(int(src[0]))
+    unit = state.units.get(src_name)
+    if unit is None or unit.power != power:
+        return None
+
+    if order_code == action_utils.HOLD:
+        return Order(unit=unit, type=OrderType.HOLD)
+
+    if order_code == action_utils.MOVE_TO:
+        target_name = _engine_province_name(int(target[0]))
+        return Order(unit=unit, type=OrderType.MOVE, target=target_name)
+
+    if order_code == action_utils.SUPPORT_HOLD:
+        support_loc = _engine_province_name(int(target[0]))
+        return Order(
+            unit=unit,
+            type=OrderType.SUPPORT,
+            support_unit_loc=support_loc,
+        )
+
+    if order_code == action_utils.SUPPORT_MOVE_TO:
+        support_loc = _engine_province_name(int(third[0]))
+        support_target = _engine_province_name(int(target[0]))
+        return Order(
+            unit=unit,
+            type=OrderType.SUPPORT,
+            support_unit_loc=support_loc,
+            support_target=support_target,
+        )
+
+    if order_code == action_utils.RETREAT_TO:
+        target_name = _engine_province_name(int(target[0]))
+        return Order(unit=unit, type=OrderType.RETREAT, target=target_name)
+
+    if order_code == action_utils.DISBAND:
+        return Order(unit=unit, type=OrderType.RETREAT)
+
+    # Convoys, builds, and removes are not modelled in the lightweight engine
+    # yet, so fall back to a hold for unsupported action codes.
+    return Order(unit=unit, type=OrderType.HOLD)
