@@ -20,27 +20,25 @@ from ..deepmind.actions import (
 
 
 class DeepMindSlAgent(Agent):
-    """
-    Agent wrapper that controls a single power using DeepMind's supervised-learning policy.
+    """Agent wrapper that controls a single power via DeepMind's SL policy."""
 
-    It:
-      1. Converts your GameState -> DeepMind observation.
-      2. Builds the DeepMind-style legal action lists.
-      3. Calls the SL policy to get chosen action indices.
-      4. Converts those indices back into engine-level Order objects.
-    """
-
-    def __init__(self, power: Power, sl_params_path: str, rng_seed: int = 0, temperature: float = 0.1):
+    def __init__(
+        self,
+        power: Power,
+        sl_params_path: str,
+        rng_seed: int = 0,
+        temperature: float = 0.1,
+    ):
         super().__init__(power)
         self._policy = make_sl_policy(sl_params_path, rng_seed=rng_seed)
         self._temperature = temperature  # currently configured inside make_sl_policy
 
     # --------- main per-round hook used by the game loop ----------
 
-    def plan_orders(self, state: GameState) -> List[Order]:
-        """
-        Plan movement orders for this agent's power in the current phase.
-        """
+    def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
+        """Plan movement orders for this agent's power in the current phase."""
+
+        del round_index  # the SL policy is stateless, so we ignore the round counter
 
         # 1) Build DeepMind observation from your engine state.
         #
