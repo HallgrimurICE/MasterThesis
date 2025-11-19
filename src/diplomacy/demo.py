@@ -375,6 +375,7 @@ def run_standard_board_with_deepmind_turkey(
     base_rng = random.Random(seed)
 
     turkey = Power("Turkey")
+    
     turkey_seed = base_rng.randint(0, 2**32 - 1)
 
     # Use the DeepMind SL agent we just wrote
@@ -385,16 +386,28 @@ def run_standard_board_with_deepmind_turkey(
         temperature=temperature,
     )
 
+    # # All agents as before (Turkey uses DM agent, rest random):
+    # agents: Dict[Power, Agent] = {}
+    # for power in sorted(state.powers, key=str):
+    #     if power == turkey:
+    #         agents[power] = turkey_agent
+    #         continue
+    #     agent_seed = base_rng.randint(0, 2**32 - 1)
+    #     agents[power] = RandomAgent(
+    #         power,
+    #         hold_probability=hold_probability,
+    #         rng=random.Random(agent_seed),
+    #     )
+
+    # All agents are DeepMindSlAgent now:
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
-        if power == turkey:
-            agents[power] = turkey_agent
-            continue
         agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = RandomAgent(
-            power,
-            hold_probability=hold_probability,
-            rng=random.Random(agent_seed),
+        agents[power] = DeepMindSlAgent(
+            power=power,
+            sl_params_path=str(weights_path),
+            rng_seed=agent_seed,
+            temperature=temperature,
         )
 
     states, titles, orders_history = run_rounds_with_agents(
@@ -517,7 +530,7 @@ if __name__ == "__main__":
 
     run_standard_board_with_deepmind_turkey(
         weights_path=default_weights,
-        rounds=50,
+        rounds=200,
         visualize=True,
         seed=123,
     )
