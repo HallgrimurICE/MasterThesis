@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -20,7 +20,7 @@ from ..deepmind.actions import (
     decode_actions_to_orders,     # (state, power, action_indices) -> List[Order]
 )
 from ..adjudication import Adjudicator
-from ..negotiation.contracts import restrict_actions_for_power
+from ..negotiation.contracts import Contract, restrict_actions_for_power
 from ..negotiation.rss import compute_active_contracts, run_rss_for_power
 
 
@@ -115,6 +115,8 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
     contracts by masking the legal action space before sampling orders.
     """
 
+    _negotiation_cache: Dict[Tuple[Any, ...], Sequence["Contract"]] = {}
+
     def __init__(
         self,
         power: Power,
@@ -139,22 +141,18 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         value_fn = self._state_value
         step_fn = self._step_state
 
-        proposals: Dict[Power, Set[Power]] = {}
-        for power in powers:
-            proposals[power] = run_rss_for_power(
-                state=state,
-                power=power,
-                powers=powers,
-                legal_actions=legal_actions_map,
-                policy_fns=policy_fns,
-                value_fn=value_fn,
-                step_fn=step_fn,
-                rollouts=self._mc_rollouts,
-            )
-
-        active_contracts = compute_active_contracts(state, powers, legal_actions_map, proposals)
+        active_contracts = self._active_contracts_for_state(
+            state,
+            powers,
+            legal_actions_map,
+            policy_fns,
+            value_fn,
+            step_fn,
+        )
         if active_contracts:
             for contract in active_contracts:
+                if self.power not in (contract.player_i, contract.player_j):
+                    continue
                 print(
                     "[BaselineNegotiator] Round"
                     f" {round_index} {state.phase.name}: Peace between"
@@ -179,6 +177,51 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
 
     # ------------------------------------------------------------------
     # Helper methods used by RSS + Peace logic
+
+    @staticmethod
+    def _state_signature(state: GameState) -> Tuple[Any, ...]:
+        unit_signature = tuple(
+            sorted((province, unit.power, unit.unit_type.name) for province, unit in state.units.items())
+        )
+        retreat_signature = tuple(
+            sorted((province, unit.power, unit.unit_type.name) for province, unit in state.pending_retreats.items())
+        )
+        controller_signature = tuple(sorted(state.supply_center_control.items()))
+        return (state.phase.name, unit_signature, retreat_signature, controller_signature)
+
+    def _active_contracts_for_state(
+        self,
+        state: GameState,
+        powers: Sequence[Power],
+        legal_actions: Mapping[Power, Sequence[int]],
+        policy_fns: Mapping[Power, Callable[
+            [GameState, Power, Mapping[Power, Sequence[int]], Optional[Mapping[Power, Sequence[int]]]],
+            Sequence[int],
+        ]],
+        value_fn: Callable[[GameState, Power], float],
+        step_fn: Callable[[GameState, Mapping[Power, Sequence[int]]], GameState],
+    ) -> Sequence["Contract"]:
+        signature = self._state_signature(state)
+        cached = self._negotiation_cache.get(signature)
+        if cached is not None:
+            return cached
+
+        proposals: Dict[Power, Set[Power]] = {}
+        for power in powers:
+            proposals[power] = run_rss_for_power(
+                state=state,
+                power=power,
+                powers=powers,
+                legal_actions=legal_actions,
+                policy_fns=policy_fns,
+                value_fn=value_fn,
+                step_fn=step_fn,
+                rollouts=self._mc_rollouts,
+            )
+
+        active_contracts = compute_active_contracts(state, powers, legal_actions, proposals)
+        self._negotiation_cache[signature] = active_contracts
+        return active_contracts
 
     def _legal_actions_map(
         self, state: GameState, powers: Sequence[Power]
