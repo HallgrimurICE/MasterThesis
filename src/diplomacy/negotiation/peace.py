@@ -66,7 +66,7 @@ def build_peace_contract(
 
     safe_i = frozenset(_filter_non_aggressive_actions(state, power_i, power_j, legal_i))
     safe_j = frozenset(_filter_non_aggressive_actions(state, power_j, power_i, legal_j))
-    return Contract(power_i=power_i, power_j=power_j, allowed_i=safe_i, allowed_j=safe_j)
+    return Contract(player_i=power_i, player_j=power_j, allowed_i=safe_i, allowed_j=safe_j)
 
 
 __all__ = ["build_peace_contract"]
