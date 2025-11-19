@@ -33,17 +33,46 @@ def estimate_expected_value(
     ``step_fn``, and queries the shared value network on the resulting state.
     """
 
-    if not policy_fns:
-        return 0.0
+    values = estimate_expected_values(
+        state,
+        target_powers=[target_power],
+        policy_fns=policy_fns,
+        value_fn=value_fn,
+        step_fn=step_fn,
+        legal_actions=legal_actions,
+        restricted_actions=restricted_actions,
+        rollouts=rollouts,
+    )
+    return values.get(target_power, 0.0)
 
-    total = 0.0
+
+def estimate_expected_values(
+    state: GameState,
+    *,
+    target_powers: Sequence[Power],
+    policy_fns: Mapping[Power, PolicyFn],
+    value_fn: ValueFn,
+    step_fn: StepFn,
+    legal_actions: Mapping[Power, Sequence[int]],
+    restricted_actions: Optional[Mapping[Power, Sequence[int]]] = None,
+    rollouts: int = 4,
+) -> Mapping[Power, float]:
+    """Approximate expected values for all ``target_powers`` in one sweep."""
+
+    if not policy_fns or not target_powers:
+        return {power: 0.0 for power in target_powers}
+
+    totals: Dict[Power, float] = {power: 0.0 for power in target_powers}
     for _ in range(max(1, rollouts)):
         joint_actions: Dict[Power, Sequence[int]] = {}
         for power, policy_fn in policy_fns.items():
             joint_actions[power] = policy_fn(state, power, legal_actions, restricted_actions)
         next_state = step_fn(state, joint_actions)
-        total += value_fn(next_state, target_power)
-    return total / max(1, rollouts)
+        for power in target_powers:
+            totals[power] += value_fn(next_state, power)
+
+    norm = float(max(1, rollouts))
+    return {power: total / norm for power, total in totals.items()}
 
 
-__all__ = ["estimate_expected_value"]
+__all__ = ["estimate_expected_value", "estimate_expected_values"]

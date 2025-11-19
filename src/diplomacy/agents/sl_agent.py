@@ -210,6 +210,9 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         if cached is not None:
             return cached
 
+        value_cache: Dict[
+            Tuple[Tuple[Any, ...], Tuple[Tuple[Power, Tuple[int, ...]], ...]], Mapping[Power, float]
+        ] = {}
         proposals: Dict[Power, Set[Power]] = {}
         for power in powers:
             proposals[power] = run_rss_for_power(
@@ -221,6 +224,8 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
                 value_fn=value_fn,
                 step_fn=step_fn,
                 rollouts=self._mc_rollouts,
+                value_cache=value_cache,
+                state_signature=signature,
             )
 
         active_contracts = compute_active_contracts(state, powers, legal_actions, proposals)
