@@ -232,3 +232,14 @@ def _decode_action(state: GameState, power: Power, encoded: int) -> Optional[Ord
     # Convoys, builds, and removes are not modelled in the lightweight engine
     # yet, so fall back to a hold for unsupported action codes.
     return Order(unit=unit, type=OrderType.HOLD)
+
+
+def decode_action_to_order(state: GameState, power: Power, encoded: int) -> Optional[Order]:
+    """Public helper to decode a single encoded action into an ``Order``.
+
+    This thin wrapper exposes ``_decode_action`` so other modules (e.g. the RSS
+    negotiation helpers) can reason about whether a given move would attack a
+    particular power.
+    """
+
+    return _decode_action(state, power, encoded)
