@@ -128,6 +128,9 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
     ):
         super().__init__(power, sl_params_path, rng_seed=rng_seed, temperature=temperature)
         self._mc_rollouts = mc_rollouts
+        self._joint_sample_cache: Dict[
+            Tuple[int, int, Optional[int]], Tuple[Dict[Power, Sequence[int]], int]
+        ] = {}
 
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
         print(
@@ -201,6 +204,7 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         value_fn: Callable[[GameState, Power], float],
         step_fn: Callable[[GameState, Mapping[Power, Sequence[int]]], GameState],
     ) -> Sequence["Contract"]:
+        self._joint_sample_cache.clear()
         signature = self._state_signature(state)
         cached = self._negotiation_cache.get(signature)
         if cached is not None:
@@ -254,7 +258,7 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
             restricted: Optional[Mapping[Power, Sequence[int]]],
         ) -> Sequence[int]:
             del power  # the closure already knows which power it represents
-            return self._sample_action_indices(
+            return self._cached_action_indices(
                 state,
                 focus_power=acting_power,
                 powers=powers,
@@ -264,6 +268,28 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
 
         return policy_fn
 
+    def _cached_action_indices(
+        self,
+        state: GameState,
+        focus_power: Power,
+        powers: Sequence[Power],
+        legal_actions: Mapping[Power, Sequence[int]],
+        restricted_actions: Optional[Mapping[Power, Sequence[int]]] = None,
+    ) -> List[int]:
+        key = self._joint_sample_cache_key(state, legal_actions, restricted_actions)
+        cached = self._joint_sample_cache.get(key)
+        if cached is None:
+            joint = self._sample_joint_actions(state, powers, legal_actions, restricted_actions)
+            cached = (joint, len(powers))
+        joint_actions, remaining = cached
+        actions = list(joint_actions[focus_power])
+        remaining -= 1
+        if remaining <= 0:
+            self._joint_sample_cache.pop(key, None)
+        else:
+            self._joint_sample_cache[key] = (joint_actions, remaining)
+        return actions
+
     def _sample_action_indices(
         self,
         state: GameState,
@@ -272,6 +298,21 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         legal_actions: Mapping[Power, Sequence[int]],
         restricted_actions: Optional[Mapping[Power, Sequence[int]]] = None,
     ) -> List[int]:
+        joint = self._sample_joint_actions(
+            state,
+            powers=powers,
+            legal_actions=legal_actions,
+            restricted_actions=restricted_actions,
+        )
+        return list(joint[focus_power])
+
+    def _sample_joint_actions(
+        self,
+        state: GameState,
+        powers: Sequence[Power],
+        legal_actions: Mapping[Power, Sequence[int]],
+        restricted_actions: Optional[Mapping[Power, Sequence[int]]] = None,
+    ) -> Dict[Power, Sequence[int]]:
         observation = build_observation(state, last_actions=[])
         legal_arrays: List[np.ndarray] = []
         for power in powers:
@@ -286,7 +327,16 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
             observation=observation,
             legal_actions=legal_arrays,
         )
-        return list(actions[powers.index(focus_power)])
+        return {power: list(actions[idx]) for idx, power in enumerate(powers)}
+
+    def _joint_sample_cache_key(
+        self,
+        state: GameState,
+        legal_actions: Mapping[Power, Sequence[int]],
+        restricted_actions: Optional[Mapping[Power, Sequence[int]]],
+    ) -> Tuple[int, int, Optional[int]]:
+        restricted_id = id(restricted_actions) if restricted_actions is not None else None
+        return (id(state), id(legal_actions), restricted_id)
 
     def _apply_restrictions(
         self,
