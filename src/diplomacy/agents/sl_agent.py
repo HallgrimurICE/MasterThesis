@@ -128,7 +128,9 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         self._mc_rollouts = mc_rollouts
 
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
-        del round_index
+        print(
+            f"[BaselineNegotiator][{self.power}] Round {round_index}: phase {state.phase.name}"
+        )
 
         powers = sorted(state.powers, key=str)
         legal_actions_map = self._legal_actions_map(state, powers)
@@ -151,6 +153,13 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
             )
 
         active_contracts = compute_active_contracts(state, powers, legal_actions_map, proposals)
+        if active_contracts:
+            for contract in active_contracts:
+                print(
+                    "[BaselineNegotiator] Round"
+                    f" {round_index} {state.phase.name}: Peace between"
+                    f" {contract.player_i} and {contract.player_j}"
+                )
         my_contracts = [c for c in active_contracts if self.power in (c.player_i, c.player_j)]
         restrictions_map: Optional[Dict[Power, Sequence[int]]] = None
         if my_contracts:
