@@ -16,7 +16,7 @@ except ImportError:  # pragma: no cover - fallback used when matplotlib missing
     Slider = None  # type: ignore
 
 from ..graph import NX_AVAILABLE, nx
-from ..maps import build_graph, mesh_board_5x3
+from ..maps import build_graph
 from ..state import GameState
 from ..types import Power, ProvinceType
 

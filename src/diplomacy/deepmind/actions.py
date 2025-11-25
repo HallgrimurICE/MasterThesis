@@ -108,15 +108,6 @@ def _build_action_tables() -> Tuple[
             support_move_actions.setdefault((src_id, support_src_id, tgt_id),
                                             int(encoded))
 
-<<<<<<< HEAD
-    return (hold_actions, move_actions, retreat_actions, disband_actions,
-            support_hold_actions, support_move_actions)
-
-
-(_HOLD_ACTIONS, _MOVE_ACTIONS, _RETREAT_ACTIONS, _DISBAND_ACTIONS,
- _SUPPORT_HOLD_ACTIONS,
- _SUPPORT_MOVE_ACTIONS,) = _build_action_tables()
-=======
         # NEW: map support actions as well
         elif order == action_utils.SUPPORT_HOLD:
             # src = supporter province, target = supported unit province
@@ -182,26 +173,10 @@ def _support_action_encodings(state: GameState, *, power: Power) -> List[int]:
                     actions.append(encoded)
 
     return actions
->>>>>>> codex/implement-baseline-negotiation-agent
 
 
 def _movement_action_encodings(state: GameState, *, power: Power) -> List[int]:
     actions: List[int] = []
-<<<<<<< HEAD
-    units = list(state.units.values())
-    legal_moves_by_loc = {
-        unit.loc: state.legal_moves_from(unit.loc) for unit in units
-    }
-    province_id_by_loc = {unit.loc: _province_id(unit.loc) for unit in units}
-    for unit in units:
-        if unit.power != power:
-            continue
-        src_id = province_id_by_loc[unit.loc]
-        hold_action = _HOLD_ACTIONS.get(src_id)
-        if hold_action is not None:
-            actions.append(hold_action)
-        for destination in legal_moves_by_loc.get(unit.loc, []):
-=======
 
     # HOLD + MOVE
     for unit in state.units.values():
@@ -216,37 +191,14 @@ def _movement_action_encodings(state: GameState, *, power: Power) -> List[int]:
 
         # MOVES
         for destination in state.legal_moves_from(unit.loc):
->>>>>>> codex/implement-baseline-negotiation-agent
             tgt_id = _province_id(destination)
             move_action = _MOVE_ACTIONS.get((src_id, tgt_id))
             if move_action is not None:
                 actions.append(move_action)
-<<<<<<< HEAD
-        neighbours = list(state.graph.neighbors(unit.loc))
-        for neighbour in neighbours:
-            if neighbour not in state.units:
-                continue
-            tgt_id = _province_id(neighbour)
-            support_hold_action = _SUPPORT_HOLD_ACTIONS.get((src_id, tgt_id))
-            if support_hold_action is not None:
-                actions.append(support_hold_action)
-        for destination in neighbours:
-            dest_id = _province_id(destination)
-            for other_loc, other_moves in legal_moves_by_loc.items():
-                if other_loc == unit.loc:
-                    continue
-                if destination not in other_moves:
-                    continue
-                support_move_action = _SUPPORT_MOVE_ACTIONS.get(
-                    (src_id, province_id_by_loc[other_loc], dest_id))
-                if support_move_action is not None:
-                    actions.append(support_move_action)
-=======
 
     # NEW: SUPPORT actions
     actions.extend(_support_action_encodings(state, power=power))
 
->>>>>>> codex/implement-baseline-negotiation-agent
     return actions
 
 
