@@ -48,20 +48,22 @@ class GameState:
         self._initialise_supply_center_control()
 
     def copy(self) -> "GameState":
-        s = GameState(
-            board=self.board,
-            units=dict(self.units),
-            phase=self.phase,
-            powers=set(self.powers),
-            supply_center_control=dict(self.supply_center_control),
-            pending_retreats=dict(self.pending_retreats),
-            retreat_forbidden={k: set(v) for k, v in self.retreat_forbidden.items()},
-            contested_provinces=set(self.contested_provinces),
-            supply_update_due=self.supply_update_due,
-            winner=self.winner,
-            pending_disbands=dict(self.pending_disbands),
-            pending_builds=dict(self.pending_builds),
-        )
+        # Bypass __post_init__ so we can reuse the already-built board graph and
+        # existing supply-center bookkeeping instead of rebuilding them.
+        s = GameState.__new__(GameState)
+        s.board = self.board
+        s.units = dict(self.units)
+        s.phase = self.phase
+        s.powers = set(self.powers)
+        s.graph = self.graph
+        s.supply_center_control = dict(self.supply_center_control)
+        s.pending_retreats = dict(self.pending_retreats)
+        s.retreat_forbidden = {k: set(v) for k, v in self.retreat_forbidden.items()}
+        s.contested_provinces = set(self.contested_provinces)
+        s.supply_update_due = self.supply_update_due
+        s.winner = self.winner
+        s.pending_disbands = dict(self.pending_disbands)
+        s.pending_builds = dict(self.pending_builds)
         return s
 
     # utilities used by value/sbr later
