@@ -249,6 +249,7 @@ class Adjudicator:
                         existing = resolution.auto_builds.get(power, [])
                         resolution.auto_builds[power] = existing + provinces
 
+        next_state._invalidate_caches()
         return next_state, resolution
 
     def _resolve_retreat_phase(
@@ -352,6 +353,7 @@ class Adjudicator:
             else:
                 next_state.supply_update_due = False
 
+        next_state._invalidate_caches()
         return next_state, resolution
 
 

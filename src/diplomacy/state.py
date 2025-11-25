@@ -31,6 +31,12 @@ class GameState:
     winner: Optional[Power] = None
     pending_disbands: Dict[Power, int] = field(default_factory=dict)
     pending_builds: Dict[Power, int] = field(default_factory=dict)
+    _legal_moves_cache: Dict[str, List[str]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _legal_retreats_cache: Dict[str, List[str]] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         # Build/refresh the graph from the board definition
@@ -46,6 +52,7 @@ class GameState:
                 if name != nbr:
                     self.graph.add_edge(name, nbr)
         self._initialise_supply_center_control()
+        self._invalidate_caches()
 
     def copy(self) -> "GameState":
         s = GameState(
@@ -92,6 +99,9 @@ class GameState:
         return cnt
 
     def legal_moves_from(self, province: str) -> List[str]:
+        if province in self._legal_moves_cache:
+            return self._legal_moves_cache[province]
+
         unit = self.units.get(province)
         if unit is None:
             return []
@@ -102,10 +112,15 @@ class GameState:
                 continue
             if self._unit_can_enter(unit.unit_type, destination.province_type):
                 legal.append(neighbor)
+
+        self._legal_moves_cache[province] = legal
         return legal
 
     def legal_retreats_from(self, province: str) -> List[str]:
         """Return admissible retreat destinations for the dislodged unit at ``province``."""
+
+        if province in self._legal_retreats_cache:
+            return self._legal_retreats_cache[province]
 
         if province not in self.pending_retreats:
             return []
@@ -129,6 +144,7 @@ class GameState:
             if not self._unit_can_enter(unit.unit_type, destination.province_type):
                 continue
             legal.append(neighbor)
+        self._legal_retreats_cache[province] = legal
         return legal
 
     @staticmethod
@@ -223,6 +239,7 @@ class GameState:
             removed[power] = to_remove
         if removed:
             self.pending_disbands = {}
+            self._invalidate_caches()
         return removed
 
     def update_pending_builds(self) -> None:
@@ -295,6 +312,7 @@ class GameState:
                 self.pending_builds[power] = remaining
             else:
                 self.pending_builds.pop(power, None)
+            self._invalidate_caches()
         return built
 
     def auto_build(self) -> Dict[Power, List[str]]:
@@ -322,7 +340,12 @@ class GameState:
             built[power] = selection
         if built:
             self.pending_builds = {}
+            self._invalidate_caches()
         return built
+
+    def _invalidate_caches(self) -> None:
+        self._legal_moves_cache.clear()
+        self._legal_retreats_cache.clear()
 
     def total_supply_centers(self) -> int:
         return sum(1 for prov in self.board.values() if prov.is_supply_center)
