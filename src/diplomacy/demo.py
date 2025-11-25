@@ -17,7 +17,7 @@ from .maps import (
     fleet_coast_demo_state,
     standard_initial_state,
 )
-from .agents.sl_agent import DeepMindSlAgent    
+from .agents.sl_agent import DeepMindSlAgent, BaselineNegotiatorAgent
 from .orders import hold, move, support_hold, support_move
 from .simulation import run_rounds_with_agents
 from .state import GameState
@@ -378,6 +378,10 @@ def run_standard_board_with_deepmind_turkey(
     
     turkey_seed = base_rng.randint(0, 2**32 - 1)
 
+    austria = Power("Austria")
+    austria_seed = base_rng.randint(0, 2**32 - 1)
+
+
     # Use the DeepMind SL agent we just wrote
     turkey_agent = DeepMindSlAgent(
         power=turkey,
@@ -386,22 +390,23 @@ def run_standard_board_with_deepmind_turkey(
         temperature=temperature,
     )
 
-    # # All agents as before (Turkey uses DM agent, rest random):
-    # agents: Dict[Power, Agent] = {}
-    # for power in sorted(state.powers, key=str):
-    #     if power == turkey:
-    #         agents[power] = turkey_agent
-    #         continue
-    #     agent_seed = base_rng.randint(0, 2**32 - 1)
-    #     agents[power] = RandomAgent(
-    #         power,
-    #         hold_probability=hold_probability,
-    #         rng=random.Random(agent_seed),
-    #     )
+    austria_agent = DeepMindSlAgent(
+        power=austria,
+        sl_params_path=str(weights_path),
+        rng_seed=austria_seed,
+        temperature=temperature
+    )
 
-    # All agents are DeepMindSlAgent now:
+
+
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
+        if power == turkey:
+            agents[power] = turkey_agent
+            continue
+        if power == austria:
+            agents[power] = austria_agent
+            continue
         agent_seed = base_rng.randint(0, 2**32 - 1)
         agents[power] = DeepMindSlAgent(
             power=power,
@@ -520,7 +525,7 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    default_weights = Path("data/fppi2_params.npz")
+    default_weights = Path("data/sl_params.npz")
     if not default_weights.is_file():
         raise SystemExit(
             "Default weights expected at "
@@ -530,7 +535,7 @@ if __name__ == "__main__":
 
     run_standard_board_with_deepmind_turkey(
         weights_path=default_weights,
-        rounds=200,
+        rounds=20,
         visualize=True,
         seed=123,
     )
