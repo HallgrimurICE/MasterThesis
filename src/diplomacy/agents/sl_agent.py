@@ -34,76 +34,185 @@ class DeepMindSlAgent(Agent):
         sl_params_path: str,
         rng_seed: int = 0,
         temperature: float = 0.1,
+        k_candidates: int = 8,
+        action_rollouts: int = 4,
     ):
         super().__init__(power)
         self._policy = make_sl_policy(sl_params_path, rng_seed=rng_seed)
-        self._temperature = temperature  # currently configured inside make_sl_policy
+        # Temperature is currently configured inside make_sl_policy, but we keep
+        # the field for future use / inspection.
+        self._temperature = temperature
 
-    # --------- main per-round hook used by the game loop ----------
+        # Parameters for sampled best-response search.
+        self._k_candidates = k_candidates       # K: number of candidate moves
+        self._action_rollouts = action_rollouts # N: rollouts per candidate
 
+    # ------------------------------------------------------------------------
+    # Public planning API used by simulation.run_rounds_with_agents
+    # ------------------------------------------------------------------------
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
-        """Plan movement orders for this agent's power in the current phase."""
+        """Plan a set of orders for this power in the given state.
 
-        del round_index  # the SL policy is stateless, so we ignore the round counter
+        Instead of sampling one action from the policy, we:
+          - sample K candidate actions for this power
+          - for each candidate, run N rollouts with other powers sampled
+            from the policy
+          - pick the candidate with highest average value.
+        """
+        del round_index  # not used in this agent
 
-        # 1) Build DeepMind observation from your engine state.
-        #
-        # You already have tests for this in `test_deepmind_observation.py`,
-        # which call `diplomacy.deepmind.build_observation(state, last_actions=[...])`.
-        #
-        # Here we assume last_actions=[] for simplicity, but you can thread in
-        # a history of last action indices if you want to be fancy later.
-        observation = build_observation(state, last_actions=[])
+        # Use best-response search to pick our action indices.
+        my_action_indices = self._best_response_action_indices(state)
 
-        # 2) Build DM-style legal actions: list of arrays, one per player.
-        # The test file suggests you are designing a mapping layer under
-        # `diplomacy.deepmind`. Here we just call it.
-        legal_actions = legal_actions_from_state(state)
-
-        # Make sure we know which slot index corresponds to `self.power`.
-        # You should have a consistent ordering of powers (e.g., sorted by name).
-        powers: List[Power] = sorted(state.powers, key=str)
-        num_players = len(powers)
-        assert len(legal_actions) == num_players, "legal_actions must align with powers"
-
-        try:
-            my_index = powers.index(self.power)
-        except ValueError:
-            raise ValueError(f"Agent power {self.power} not in state.powers={powers}")
-
-        # 3) Ask the SL policy for actions for *all* players (or just this one).
-        slots_list: Sequence[int] = list(range(num_players))  # all players
-        # If you only want the policy's suggestion for this power, you can also use:
-        # slots_list = [my_index]
-
-        actions, info = self._policy.actions(
-            slots_list=slots_list,
-            observation=observation,
-            legal_actions=legal_actions,
-        )
-
-        # `actions` is a list (per slot) of sequences of action indices.
-        my_action_indices = list(actions[my_index])
-
-        # 4) Convert action indices for this power back to engine Orders.
         orders: List[Order] = decode_actions_to_orders(
             state=state,
             power=self.power,
             action_indices=my_action_indices,
         )
-
         return orders
 
-    # --------- optional: handle retreats & builds if you want ----------
+    # ------------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------------
+    def _step_state(
+        self,
+        state: GameState,
+        joint_actions: Mapping[Power, Sequence[int]],
+    ) -> GameState:
+        """Apply encoded joint actions and return the next GameState.
 
-    def _plan_retreat_orders(self, state: GameState, retreat_index: int) -> List[Order]:
-        # For now, just hold / disband or delegate to some heuristic.
-        # You can make this smarter later if you like.
-        return []
+        joint_actions: mapping from Power -> sequence of encoded actions
+                       (the 64-bit DeepMind action integers).
+        """
+        orders: List[Order] = []
+        for power, action_indices in joint_actions.items():
+            orders.extend(
+                decode_actions_to_orders(
+                    state=state,
+                    power=power,
+                    action_indices=action_indices,
+                )
+            )
 
-    def plan_builds(self, state: GameState, build_count: int):
-        # For now, do nothing (no builds). Or implement a simple heuristic.
-        return []
+        # Adjudicator.resolve returns (next_state, titles_history)
+        next_state, _ = Adjudicator(state).resolve(orders)
+        return next_state
+
+    def _state_value(self, state: GameState, power: Power) -> float:
+        """Return this power's scalar value estimate V(s) from the SL policy.
+
+        We follow the same pattern as in BaselineNegotiatorAgent:
+        - call policy.actions(...) to run the network
+        - read the 'values' entry from the returned info dict
+        - index into it using the power's slot.
+        """
+        observation = build_observation(state, last_actions=[])
+        legal_actions = legal_actions_from_state(state)
+        # If there are no legal actions (should be rare), just return 0.
+        if not legal_actions:
+            return 0.0
+
+        powers: List[Power] = sorted(state.powers, key=str)
+        slots_list: Sequence[int] = list(range(len(powers)))
+
+        # We don't actually care about the sampled actions here, only 'info'.
+        _, info = self._policy.actions(
+            slots_list=slots_list,
+            observation=observation,
+            legal_actions=legal_actions,
+        )
+
+        values = info.get("values") if isinstance(info, dict) else None
+        if values is None:
+            return 0.0
+
+        try:
+            # values is assumed to be a 1D array aligned with 'powers'.
+            return float(values[powers.index(power)])
+        except (ValueError, IndexError, TypeError):
+            return 0.0
+
+    def _best_response_action_indices(self, state: GameState) -> List[int]:
+        """Sample K candidate actions for me and evaluate each with N rollouts.
+
+        Algorithm:
+          - Let powers be the sorted list of powers, my_index our index.
+          - legal_actions[p] is the list of encoded actions for power p.
+          - For k in 1..K:
+              * sample a joint action profile from the policy
+              * take my part as candidate 'a_k'
+              * estimate its value with N rollouts:
+                  - fix my action to 'a_k'
+                  - resample others from policy
+                  - step one turn, evaluate V(next_state) for me
+              * keep the candidate with highest average V.
+        """
+        powers: List[Power] = sorted(state.powers, key=str)
+        num_players = len(powers)
+        my_power = self.power
+        my_index = powers.index(my_power)
+
+        # 1) Get full legal actions for all powers in this state.
+        legal_actions = list(legal_actions_from_state(state))
+
+        # Precompute observation once for this state.
+        observation = build_observation(state, last_actions=[])
+
+        best_value = float("-inf")
+        best_candidate: Optional[List[int]] = None
+
+        K = getattr(self, "_k_candidates", 8)
+        N = getattr(self, "_action_rollouts", 4)
+
+        slots_list: List[int] = list(range(num_players))  # one slot per power
+
+        for _ in range(K):
+            # 2) Sample one joint-action profile; take my action as the candidate.
+            joint_actions_array, _ = self._policy.actions(
+                slots_list=slots_list,
+                observation=observation,
+                legal_actions=legal_actions,
+            )
+            my_candidate_indices = list(joint_actions_array[my_index])
+
+            # 3) Evaluate this candidate with N Monte-Carlo rollouts.
+            total_v = 0.0
+
+            for _ in range(N):
+                # Build legal_actions for rollout:
+                rollout_legal_actions = list(legal_actions)
+
+                # For my power, restrict to exactly this candidate.
+                rollout_legal_actions[my_index] = np.asarray(
+                    my_candidate_indices, dtype=np.int64
+                )
+
+                # Resample other powers subject to the restriction on me.
+                rollout_actions_array, _ = self._policy.actions(
+                    slots_list=slots_list,
+                    observation=observation,
+                    legal_actions=rollout_legal_actions,
+                )
+
+                # Convert to mapping Power -> List[int]
+                joint_actions: Dict[Power, List[int]] = {}
+                for slot, p in enumerate(powers):
+                    joint_actions[p] = list(rollout_actions_array[slot])
+
+                # Step the state and evaluate my value at the next state.
+                next_state = self._step_state(state, joint_actions)
+                v = self._state_value(next_state, my_power)
+                total_v += v
+
+            avg_v = total_v / float(N)
+
+            if avg_v > best_value:
+                best_value = avg_v
+                best_candidate = my_candidate_indices
+
+        assert best_candidate is not None
+        return best_candidate
+
 
 
 class BaselineNegotiatorAgent(DeepMindSlAgent):

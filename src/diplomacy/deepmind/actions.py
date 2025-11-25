@@ -62,6 +62,8 @@ def _build_action_tables() -> Tuple[
     Dict[Tuple[int, int], int],
     Dict[Tuple[int, int], int],
     Dict[int, int],
+    Dict[Tuple[int, int], int],
+    Dict[Tuple[int, int, int], int],
 ]:
     """Index DeepMind's master action list for quick lookups.
 
@@ -74,43 +76,121 @@ def _build_action_tables() -> Tuple[
     retreat_actions: Dict[Tuple[int, int], int] = {}
     disband_actions: Dict[int, int] = {}
 
+    # NEW: support actions
+    support_hold_actions: Dict[Tuple[int, int], int] = {}
+    support_move_actions: Dict[Tuple[int, int, int], int] = {}
+
     for encoded in POSSIBLE_ACTIONS.astype(np.int64, copy=False):
-        order, src, target, _third = action_utils.action_breakdown(int(encoded))
+        order, src, target, third = action_utils.action_breakdown(int(encoded))
         src_id = int(src[0])
+
         if order == action_utils.HOLD:
             hold_actions.setdefault(src_id, int(encoded))
+
         elif order == action_utils.MOVE_TO:
             tgt_id = int(target[0])
             move_actions.setdefault((src_id, tgt_id), int(encoded))
+
         elif order == action_utils.RETREAT_TO:
             tgt_id = int(target[0])
             retreat_actions.setdefault((src_id, tgt_id), int(encoded))
+
         elif order == action_utils.DISBAND:
             disband_actions.setdefault(src_id, int(encoded))
 
-    return hold_actions, move_actions, retreat_actions, disband_actions
+        # NEW: map support actions as well
+        elif order == action_utils.SUPPORT_HOLD:
+            # src = supporter province, target = supported unit province
+            tgt_id = int(target[0])
+            support_hold_actions.setdefault((src_id, tgt_id), int(encoded))
+
+        elif order == action_utils.SUPPORT_MOVE_TO:
+            # src = supporter, target = destination, third = moving unit's province
+            dest_id = int(target[0])
+            mover_id = int(third[0])
+            support_move_actions.setdefault((src_id, mover_id, dest_id), int(encoded))
+
+    return (
+        hold_actions,
+        move_actions,
+        retreat_actions,
+        disband_actions,
+        support_hold_actions,
+        support_move_actions,
+    )
+
+(
+    _HOLD_ACTIONS,
+    _MOVE_ACTIONS,
+    _RETREAT_ACTIONS,
+    _DISBAND_ACTIONS,
+    _SUPPORT_HOLD_ACTIONS,
+    _SUPPORT_MOVE_ACTIONS,
+) = _build_action_tables()
 
 
-_HOLD_ACTIONS, _MOVE_ACTIONS, _RETREAT_ACTIONS, _DISBAND_ACTIONS = (
-    _build_action_tables()
-)
+
+def _support_action_encodings(state: GameState, *, power: Power) -> List[int]:
+    """Return encoded support actions (support hold & support move) for this power."""
+    actions: List[int] = []
+
+    # For each of *our* units, consider all possible supports it can give.
+    for unit in state.units.values():
+        if unit.power != power:
+            continue
+
+        supporter_loc = unit.loc
+        supporter_id = _province_id(supporter_loc)
+
+        # --- SUPPORT HOLD ---
+        # For any unit on the board, if there is a SUPPORT_HOLD action for
+        # (supporter, target), include it.
+        for target_loc, target_unit in state.units.items():
+            target_id = _province_id(target_loc)
+            encoded = _SUPPORT_HOLD_ACTIONS.get((supporter_id, target_id))
+            if encoded is not None:
+                actions.append(encoded)
+
+        # --- SUPPORT MOVE ---
+        # For any unit on the board, and any legal move it could make, if we
+        # have a SUPPORT_MOVE_TO action for (supporter, mover, dest), include it.
+        for mover_loc, mover_unit in state.units.items():
+            mover_id = _province_id(mover_loc)
+            for dest_loc in state.legal_moves_from(mover_loc):
+                dest_id = _province_id(dest_loc)
+                encoded = _SUPPORT_MOVE_ACTIONS.get((supporter_id, mover_id, dest_id))
+                if encoded is not None:
+                    actions.append(encoded)
+
+    return actions
 
 
 def _movement_action_encodings(state: GameState, *, power: Power) -> List[int]:
     actions: List[int] = []
+
+    # HOLD + MOVE
     for unit in state.units.values():
         if unit.power != power:
             continue
         src_id = _province_id(unit.loc)
+
+        # HOLD
         hold_action = _HOLD_ACTIONS.get(src_id)
         if hold_action is not None:
             actions.append(hold_action)
+
+        # MOVES
         for destination in state.legal_moves_from(unit.loc):
             tgt_id = _province_id(destination)
             move_action = _MOVE_ACTIONS.get((src_id, tgt_id))
             if move_action is not None:
                 actions.append(move_action)
+
+    # NEW: SUPPORT actions
+    actions.extend(_support_action_encodings(state, power=power))
+
     return actions
+
 
 
 def _retreat_action_encodings(state: GameState, *, power: Power) -> List[int]:
