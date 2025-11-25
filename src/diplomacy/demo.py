@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
-
+import time 
 from .adjudication import Adjudicator, Resolution
 from .agents import (
     Agent,
@@ -12,9 +12,6 @@ from .agents import (
     SampledBestResponsePolicy,
 )
 from .maps import (
-    cooperative_attack_initial_state,
-    demo_state_mesh,
-    fleet_coast_demo_state,
     standard_initial_state,
 )
 from .agents.sl_agent import DeepMindSlAgent, BaselineNegotiatorAgent
@@ -25,76 +22,6 @@ from .types import Order, Power, Unit, describe_order
 from .viz.mesh import interactive_visualize_state_mesh, visualize_state
 
 
-def simulate_two_power_cooperation() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
-    """Compare outcomes with and without coordinated support."""
-
-    scenarios: Dict[str, Tuple[GameState, Resolution, List[Order]]] = {}
-
-    def run_case(order_builder: Callable[[GameState], List[Order]], label: str) -> None:
-        state = cooperative_attack_initial_state()
-        orders = order_builder(state)
-        next_state, resolution = Adjudicator(state).resolve(orders)
-        scenarios[label] = (next_state, resolution, orders)
-
-    def solo_attack(state: GameState) -> List[Order]:
-        attacker = state.units["A"]
-        ally = state.units["B"]
-        defender = state.units["C"]
-        return [
-            move(attacker, "C"),
-            hold(ally),
-            hold(defender),
-        ]
-
-    def supported_attack(state: GameState) -> List[Order]:
-        attacker = state.units["A"]
-        supporter = state.units["B"]
-        defender = state.units["C"]
-        return [
-            move(attacker, "C"),
-            support_move(supporter, "A", "C"),
-            hold(defender),
-        ]
-
-    run_case(solo_attack, "solo_attack")
-    run_case(supported_attack, "supported_attack")
-
-    return scenarios
-
-
-def simulate_fleet_coast_movements() -> Dict[str, Tuple[GameState, Resolution, List[Order]]]:
-    """Demonstrate movement validation for armies vs fleets on mixed terrain."""
-
-    scenarios: Dict[str, Tuple[GameState, Resolution, List[Order]]] = {}
-
-    def run_case(order_builder: Callable[[GameState], List[Order]], label: str) -> None:
-        state = fleet_coast_demo_state()
-        orders = order_builder(state)
-        next_state, resolution = Adjudicator(state).resolve(orders)
-        scenarios[label] = (next_state, resolution, orders)
-
-    def illegal_orders(state: GameState) -> List[Order]:
-        units = state.units
-        return [
-            move(units["Highlands"], "AzureSea"),  # army attempting to enter sea
-            move(units["AlbionBay"], "Highlands"),  # fleet attempting to enter land
-            move(units["RedKeep"], "AzureSea"),  # army attempting to sail
-            move(units["OpenOcean"], "RedKeep"),  # fleet attempting to landlocked province
-        ]
-
-    def terrain_compliant_orders(state: GameState) -> List[Order]:
-        units = state.units
-        return [
-            move(units["Highlands"], "Cliffhaven"),
-            move(units["AlbionBay"], "AzureSea"),
-            hold(units["RedKeep"]),
-            hold(units["OpenOcean"]),
-        ]
-
-    run_case(illegal_orders, "illegal_orders")
-    run_case(terrain_compliant_orders, "terrain_compliant_orders")
-
-    return scenarios
 
 
 def _format_orders_with_actions(orders: Iterable[Order]) -> List[str]:
@@ -115,75 +42,6 @@ def _format_orders_with_actions(orders: Iterable[Order]) -> List[str]:
     return formatted
 
 
-def print_two_power_cooperation_report() -> None:
-    initial_state = cooperative_attack_initial_state()
-    print("=== Cooperative attack scenario ===")
-    print("Initial unit placement:")
-    for loc in sorted(initial_state.units):
-        unit = initial_state.units[loc]
-        sc_flag = " (SC)" if initial_state.board[loc].is_supply_center else ""
-        print(f"  - {unit.power} unit in {loc}{sc_flag}")
-
-    outcomes = simulate_two_power_cooperation()
-    for label in ("solo_attack", "supported_attack"):
-        next_state, resolution, orders = outcomes[label]
-        print(f"\nScenario: {label.replace('_', ' ').title()}")
-        print("Orders issued:")
-        for line in _format_orders_with_actions(orders):
-            print(line)
-        succeeded = sorted(str(o) for o in resolution.succeeded)
-        failed = sorted(str(o) for o in resolution.failed)
-        dislodged = sorted(resolution.dislodged)
-        print("Succeeded orders:")
-        for text in succeeded:
-            print(f"    {text}")
-        print("Failed orders:")
-        for text in failed:
-            print(f"    {text}")
-        print(f"Dislodged provinces: {dislodged if dislodged else 'None'}")
-        occupying = {loc: unit.power for loc, unit in sorted(next_state.units.items())}
-        print("Post-resolution occupants:")
-        for loc, power in occupying.items():
-            print(f"  - {loc}: {power}")
-
-
-def print_fleet_coast_demo_report() -> None:
-    initial_state = fleet_coast_demo_state()
-    print("=== Fleet and Coast Movement Scenario ===")
-    print("Initial terrain and occupants:")
-    for loc in sorted(initial_state.board):
-        province = initial_state.board[loc]
-        unit = initial_state.units.get(loc)
-        terrain = province.province_type.name.title()
-        sc_flag = " (SC)" if province.is_supply_center else ""
-        if unit:
-            unit_desc = f"{unit.power} {unit.unit_type.name.title()}"
-        else:
-            unit_desc = "Unoccupied"
-        print(f"  - {loc}: {terrain}{sc_flag} -> {unit_desc}")
-
-    print("\nLegal moves from initial state:")
-    for loc, unit in sorted(initial_state.units.items()):
-        moves = sorted(initial_state.legal_moves_from(loc))
-        move_text = ", ".join(moves) if moves else "(none)"
-        print(f"  * {unit.power} {unit.unit_type.name.title()} in {loc}: {move_text}")
-
-    outcomes = simulate_fleet_coast_movements()
-    for label in ("illegal_orders", "terrain_compliant_orders"):
-        next_state, resolution, orders = outcomes[label]
-        print(f"\nScenario: {label.replace('_', ' ').title()}")
-        print("Orders issued:")
-        for line in _format_orders_with_actions(orders):
-            print(line)
-        print("Succeeded orders:")
-        for text in sorted(str(o) for o in resolution.succeeded):
-            print(f"    {text}")
-        print("Failed orders:")
-        for text in sorted(str(o) for o in resolution.failed):
-            print(f"    {text}")
-        print("Post-resolution occupants:")
-        for loc, unit in sorted(next_state.units.items()):
-            print(f"  - {loc}: {unit.power} {unit.unit_type.name.title()}")
 
 
 def print_standard_board_demo() -> None:
@@ -208,25 +66,6 @@ def print_standard_board_demo() -> None:
     if not state.units:
         print("\n(No starting units added yet.)")
 
-
-def visualize_fleet_coast_demo() -> None:
-    """Interactive visualization for the fleet/coast terrain demo."""
-
-    scenarios = simulate_fleet_coast_movements()
-    initial_state = fleet_coast_demo_state()
-
-    states: List[GameState] = [initial_state]
-    titles: List[str] = ["Initial Fleet/Coast Demo Map"]
-
-    illegal_state, _, _ = scenarios["illegal_orders"]
-    states.append(illegal_state)
-    titles.append("After Illegal Orders (all rejected)")
-
-    legal_state, _, _ = scenarios["terrain_compliant_orders"]
-    states.append(legal_state)
-    titles.append("After Terrain-Compliant Orders")
-
-    interactive_visualize_state_mesh(states, titles)
 
 
 def visualize_standard_board() -> None:
@@ -278,6 +117,47 @@ def run_standard_board_with_random_england(
             print(line)
 
     interactive_visualize_state_mesh(states, titles)
+
+def deepmind_single_move_latency(
+    *,
+    weights_path: str | Path,
+    k_candidates: int = 1,
+    action_rollouts: int = 1,
+    seed: Optional[int] = None,
+) -> float:
+    """Run a single DeepMindSL planning step on the standard board and return latency in seconds."""
+
+    weights_path = Path(weights_path)
+    if not weights_path.is_file():
+        raise FileNotFoundError(
+            "Could not find supervised-learning parameters at "
+            f"{weights_path}. Download the SL params file and pass its full path."
+        )
+
+    # Use the same standard_initial_state as the other demos
+    state = standard_initial_state()
+
+    # Pick a deterministic power (first in sorted order)
+    power = sorted(state.powers, key=str)[0]
+
+    rng_seed = random.Random(seed).randint(0, 2**32 - 1) if seed is not None else None
+
+    agent = DeepMindSlAgent(
+        power=power,
+        sl_params_path=str(weights_path),
+        rng_seed=rng_seed,
+        k_candidates=k_candidates,
+        action_rollouts=action_rollouts,
+    )
+
+    start = time.perf_counter()
+    orders = agent._plan_orders(state, round_index=0)
+    duration = time.perf_counter() - start
+
+    if not orders:
+        raise RuntimeError("DeepMindSlAgent did not return any orders.")
+
+    return duration
 
 
 def run_standard_board_with_random_agents(
@@ -543,76 +423,6 @@ def run_standard_board_with_mixed_deepmind_and_random(
     if visualize:
         interactive_visualize_state_mesh(states, titles)
 
-
-def demo_run_mesh_with_random_orders(rounds: int = 3):
-    state = demo_state_mesh()
-    states = [state]
-    titles = ["Initial 5x3 Mesh Map"]
-
-    toward = {"1": "7", "5": "9", "11": "12", "15": "14", "8": "8"}
-
-    for r in range(1, rounds + 1):
-        orders: List[Order] = []
-        for loc, unit in list(state.units.items()):
-            if unit.power == Power("Red"):
-                orders.append(hold(unit))
-                continue
-            dest = toward.get(loc)
-            if dest and dest in state.legal_moves_from(loc):
-                orders.append(move(unit, dest))
-            else:
-                orders.append(hold(unit))
-
-        print(f"\nRound {r} orders:")
-        for line in _format_orders_with_actions(orders):
-            print(line)
-        state, _ = Adjudicator(state).resolve(orders)
-        states.append(state)
-        titles.append(f"After Round {r} – 5x3 Mesh Map")
-
-    interactive_visualize_state_mesh(states, titles)
-
-
-def demo_run_mesh_with_random_agents(
-    rounds: int = 500,
-    *,
-    seed: Optional[int] = None,
-    hold_probability: float = 0.2,
-) -> None:
-    state = demo_state_mesh()
-    base_rng = random.Random(seed)
-
-    agents: Dict[Power, Agent] = {}
-    for power in sorted(state.powers, key=str):
-        agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = RandomAgent(
-            power,
-            hold_probability=hold_probability,
-            rng=random.Random(agent_seed),
-        )
-
-    states, titles, orders_history = run_rounds_with_agents(
-        state,
-        agents,
-        rounds,
-        title_prefix="After Round {round} – Random Agents on 5x3 Mesh",
-        stop_on_winner=True,
-    )
-
-    for round_index, orders in enumerate(orders_history, start=1):
-        print(f"\nRound {round_index} orders:")
-        for line in _format_orders_with_actions(orders):
-            print(line)
-
-    winner = states[-1].winner
-    if winner is not None:
-        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
-    else:
-        print("\nNo winner within the configured round limit.")
-
-    interactive_visualize_state_mesh(states, titles)
-
-
 __all__ = [
     "simulate_two_power_cooperation",
     "simulate_fleet_coast_movements",
@@ -628,6 +438,7 @@ __all__ = [
     "run_standard_board_with_mixed_deepmind_and_random",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
+    "deepmind_single_move_latency"
 ]
 
 

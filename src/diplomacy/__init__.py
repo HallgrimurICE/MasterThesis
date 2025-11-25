@@ -10,7 +10,7 @@ from .orders import hold, move, support_hold, support_move, retreat
 from .state import GameState
 from .adjudication import Resolution, Adjudicator
 from .simulation import run_rounds_with_agents
-from .maps import build_graph, cooperative_attack_initial_state, mesh_board_5x3, demo_state_mesh
+from .maps import build_graph, standard_board
 from .agents import (
     Agent,
     ScriptedAgent,
@@ -20,10 +20,6 @@ from .agents import (
     SampledBestResponsePolicy,
 )
 from .demo import (
-    simulate_two_power_cooperation,
-    print_two_power_cooperation_report,
-    demo_run_mesh_with_random_orders,
-    demo_run_mesh_with_random_agents,
     run_standard_board_with_deepmind_turkey,
 )
 from .viz.mesh import (
@@ -50,8 +46,7 @@ __all__ = [
     "Adjudicator",
     "run_rounds_with_agents",
     "build_graph",
-    "cooperative_attack_initial_state",
-    "mesh_board_5x3",
+    "standard_board",
     "demo_state_mesh",
     "Agent",
     "ScriptedAgent",
