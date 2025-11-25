@@ -11,12 +11,17 @@ for path in (SRC_DIR, POLICYTRAINING_DIR):
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from diplomacy.deepmind import actions as dm_actions  # noqa: E402
-from diplomacy.deepmind.actions import legal_actions_from_state  # noqa: E402
-from diplomacy.maps import standard_board  # noqa: E402
-from diplomacy.state import GameState  # noqa: E402
-from diplomacy.types import Power, Unit, UnitType  # noqa: E402
-from policytraining.environment import action_utils  # noqa: E402
+try:  # noqa: E402
+    from diplomacy.deepmind import actions as dm_actions
+    from diplomacy.deepmind.actions import legal_actions_from_state
+    from diplomacy.maps import standard_board
+    from diplomacy.state import GameState
+    from diplomacy.types import Power, Unit, UnitType
+    from policytraining.environment import action_utils
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    if exc.name == "numpy":
+        raise unittest.SkipTest("numpy is required for diplomacy tests") from exc
+    raise
 
 
 class LegalActionsSupportTest(unittest.TestCase):
