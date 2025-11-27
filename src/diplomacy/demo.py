@@ -254,21 +254,21 @@ def run_standard_board_with_deepmind_turkey(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    turkey = Power("Turkey")
+    # turkey = Power("Turkey")
     
-    turkey_seed = base_rng.randint(0, 2**32 - 1)
+    # turkey_seed = base_rng.randint(0, 2**32 - 1)
 
     austria = Power("Austria")
     austria_seed = base_rng.randint(0, 2**32 - 1)
 
 
     # Use the DeepMind SL agent we just wrote
-    turkey_agent = DeepMindSlAgent(
-        power=turkey,
-        sl_params_path=str(weights_path),
-        rng_seed=turkey_seed,
-        temperature=temperature,
-    )
+    # turkey_agent = DeepMindSlAgent(
+    #     power=turkey,
+    #     sl_params_path=str(weights_path),
+    #     rng_seed=turkey_seed,
+    #     temperature=temperature,
+    # )
 
     austria_agent = DeepMindSlAgent(
         power=austria,
@@ -281,9 +281,9 @@ def run_standard_board_with_deepmind_turkey(
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
-        if power == turkey:
-            agents[power] = turkey_agent
-            continue
+        # if power == turkey:
+        #     agents[power] = turkey_agent
+        #     continue
         if power == austria:
             agents[power] = austria_agent
             continue
@@ -321,6 +321,7 @@ def run_standard_board_with_deepmind_turkey(
 def run_standard_board_with_mixed_deepmind_and_random(
     *,
     weights_path: str | Path,
+    num_games: int = 1,
     rounds: int = 10,
     visualize: bool = False,
     seed: Optional[int] = None,
@@ -335,7 +336,9 @@ def run_standard_board_with_mixed_deepmind_and_random(
     DeepMind agents can be given distinct rollout counts (``action_rollouts``)
     and candidate widths (``k_candidates``) to compare behavior. By default the
     random agents control England, France, and Germany while the remaining
-    powers use DeepMind with progressively larger search budgets.
+    powers use DeepMind with progressively larger search budgets. The demo can
+    repeat across ``num_games`` independent matches and prints one line per
+    round plus a concise summary for each run.
     """
 
     weights_path = Path(weights_path)
@@ -346,82 +349,106 @@ def run_standard_board_with_mixed_deepmind_and_random(
             "and pass its full path via the weights_path argument."
         )
 
-    state = standard_initial_state()
     base_rng = random.Random(seed)
 
     default_randoms = [Power("England"), Power("France"), Power("Germany")]
     random_powers = random_powers or default_randoms
 
-    if deepmind_configs is None:
-        remaining_powers = [
-            p for p in sorted(state.powers, key=str) if p not in random_powers
-        ]
-        rollout_grid = [(2, 2), (3, 4), (4, 6), (5, 8)]
-        deepmind_configs = [
-            (power, k_candidates, action_rollouts)
-            for power, (k_candidates, action_rollouts) in zip(
-                remaining_powers, rollout_grid
+    def build_agents(state: GameState, rng: random.Random) -> Dict[Power, Agent]:
+        nonlocal deepmind_configs
+
+        if deepmind_configs is None:
+            remaining_powers = [
+                p for p in sorted(state.powers, key=str) if p not in random_powers
+            ]
+            rollout_grid = [(2, 2), (3, 4), (4, 6), (5, 8)]
+            deepmind_configs = [
+                (power, k_candidates, action_rollouts)
+                for power, (k_candidates, action_rollouts) in zip(
+                    remaining_powers, rollout_grid
+                )
+            ]
+
+        dm_by_power = {power: (k, n) for power, k, n in deepmind_configs}
+        agents_for_game: Dict[Power, Agent] = {}
+
+        for power in sorted(random_powers, key=str):
+            agent_seed = rng.randint(0, 2**32 - 1)
+            agents_for_game[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
             )
-        ]
 
-    dm_by_power = {power: (k, n) for power, k, n in deepmind_configs}
-    agents: Dict[Power, Agent] = {}
+        for power, (k_candidates, action_rollouts) in dm_by_power.items():
+            agent_seed = rng.randint(0, 2**32 - 1)
+            agents_for_game[power] = DeepMindSlAgent(
+                power=power,
+                sl_params_path=str(weights_path),
+                rng_seed=agent_seed,
+                temperature=temperature,
+                k_candidates=k_candidates,
+                action_rollouts=action_rollouts,
+            )
 
-    print("=== Mixed DeepMind/Random demo ===")
-    print("Random agents:")
-    for power in sorted(random_powers, key=str):
-        agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = RandomAgent(
-            power,
-            hold_probability=hold_probability,
-            rng=random.Random(agent_seed),
+        missing = [power for power in sorted(state.powers, key=str) if power not in agents_for_game]
+        if missing:
+            missing_list = ", ".join(str(p) for p in missing)
+            raise ValueError(
+                "Agents must be provided for every power; missing: " f"{missing_list}"
+            )
+
+        return agents_for_game
+
+    def supply_center_summary(state: GameState) -> str:
+        center_counts: Dict[Power, int] = {}
+        for controller in state.supply_center_control.values():
+            if controller is None:
+                continue
+            center_counts[controller] = center_counts.get(controller, 0) + 1
+        ordered = sorted(center_counts.items(), key=lambda item: str(item[0]))
+        return ", ".join(f"{power}:{count}" for power, count in ordered) or "No control"
+
+    game_results: List[Tuple[int, Optional[Power], str]] = []
+
+    for game_index in range(1, num_games + 1):
+        state = standard_initial_state()
+        agents = build_agents(state, base_rng)
+
+        states, _, _ = run_rounds_with_agents(
+            state,
+            agents,
+            rounds,
+            title_prefix="Standard Board After Round {round}",
+            stop_on_winner=stop_on_winner,
         )
-        print(f"  - {power}: hold_probability={hold_probability}, seed={agent_seed}")
 
-    print("DeepMind agents:")
-    for power, (k_candidates, action_rollouts) in dm_by_power.items():
-        agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = DeepMindSlAgent(
-            power=power,
-            sl_params_path=str(weights_path),
-            rng_seed=agent_seed,
-            temperature=temperature,
-            k_candidates=k_candidates,
-            action_rollouts=action_rollouts,
-        )
+        print(f"[Game {game_index}] Starting new match with {rounds} rounds.")
+        for round_index, round_state in enumerate(states[1:], start=1):
+            print(
+                "[Game "
+                f"{game_index}][Round {round_index}] "
+                f"Phase={round_state.phase.name} Centers={supply_center_summary(round_state)}"
+            )
+
+        winner = states[-1].winner
+        final_centers = supply_center_summary(states[-1])
+        game_results.append((len(states) - 1, winner, final_centers))
+        winner_display = winner if winner is not None else "No winner"
         print(
-            "  - "
-            f"{power}: k_candidates={k_candidates}, rollouts={action_rollouts}, seed={agent_seed}"
+            f"[Game {game_index}] Completed after {len(states) - 1} rounds. "
+            f"Winner={winner_display}. Final centers: {final_centers}."
         )
 
-    missing = [power for power in sorted(state.powers, key=str) if power not in agents]
-    if missing:
-        missing_list = ", ".join(str(p) for p in missing)
-        raise ValueError(
-            "Agents must be provided for every power; missing: " f"{missing_list}"
+        if visualize:
+            interactive_visualize_state_mesh(states, ["Round {i}" for i in range(len(states))])
+
+    print("\n=== Mixed DeepMind/Random Summary ===")
+    for idx, (rounds_played, winner, centers) in enumerate(game_results, start=1):
+        winner_display = winner if winner is not None else "No winner"
+        print(
+            f"Game {idx}: Rounds={rounds_played}, Winner={winner_display}, Final centers={centers}"
         )
-
-    states, titles, orders_history = run_rounds_with_agents(
-        state,
-        agents,
-        rounds,
-        title_prefix="Standard Board After Round {round}",
-        stop_on_winner=stop_on_winner,
-    )
-
-    for round_index, orders in enumerate(orders_history, start=1):
-        print(f"\nRound {round_index} orders:")
-        for line in _format_orders_with_actions(orders):
-            print(line)
-
-    winner = states[-1].winner
-    if winner is not None:
-        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
-    elif stop_on_winner:
-        print("\nNo winner within the configured round limit.")
-
-    if visualize:
-        interactive_visualize_state_mesh(states, titles)
 
 __all__ = [
     "simulate_two_power_cooperation",
@@ -443,7 +470,7 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    default_weights = Path("data/sl_params.npz")
+    default_weights = Path("data/fppi2_params.npz")
     if not default_weights.is_file():
         raise SystemExit(
             "Default weights expected at "
@@ -451,11 +478,23 @@ if __name__ == "__main__":
             "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
         )
 
-    run_standard_board_with_mixed_deepmind_and_random(
+
+    run_standard_board_with_deepmind_turkey(
+    # finish par
         weights_path=default_weights,
-        rounds=10,
-        visualize=True,
-        seed=123,
+        rounds=100,
+        visualize=False,
+        seed=42,
         hold_probability=0.1,
         temperature=0.2,
     )
+
+    # run_standard_board_with_mixed_deepmind_and_random(
+    #     weights_path=default_weights,
+    #     num_games=5,
+    #     rounds=30,
+    #     visualize=False,
+    #     seed=123,
+    #     hold_probability=0.1,
+    #     temperature=0.2,
+    # )
