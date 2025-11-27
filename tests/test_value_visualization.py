@@ -81,9 +81,14 @@ class ValueVisualizationTest(unittest.TestCase):
         return GameState(board=board, units=units, powers=set(_STANDARD_POWERS))
 
     def _load_policy(self):
-        params_path = Path("policytraining/data/sl_params.npz")
-        if params_path.is_file():
-            return make_sl_policy(str(params_path))
+        checkpoint_candidates = [
+            Path("policytraining/data/fppi2.npz"),
+            Path("policytraining/data/sl_params.npz"),
+        ]
+
+        for params_path in checkpoint_candidates:
+            if params_path.is_file():
+                return make_sl_policy(str(params_path))
 
         cfg = net_config.get_config()
         network_cls = cfg.network_class
