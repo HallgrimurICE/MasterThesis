@@ -254,21 +254,21 @@ def run_standard_board_with_deepmind_turkey(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    turkey = Power("Turkey")
+    # turkey = Power("Turkey")
     
-    turkey_seed = base_rng.randint(0, 2**32 - 1)
+    # turkey_seed = base_rng.randint(0, 2**32 - 1)
 
     austria = Power("Austria")
     austria_seed = base_rng.randint(0, 2**32 - 1)
 
 
     # Use the DeepMind SL agent we just wrote
-    turkey_agent = DeepMindSlAgent(
-        power=turkey,
-        sl_params_path=str(weights_path),
-        rng_seed=turkey_seed,
-        temperature=temperature,
-    )
+    # turkey_agent = DeepMindSlAgent(
+    #     power=turkey,
+    #     sl_params_path=str(weights_path),
+    #     rng_seed=turkey_seed,
+    #     temperature=temperature,
+    # )
 
     austria_agent = DeepMindSlAgent(
         power=austria,
@@ -281,9 +281,9 @@ def run_standard_board_with_deepmind_turkey(
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
-        if power == turkey:
-            agents[power] = turkey_agent
-            continue
+        # if power == turkey:
+        #     agents[power] = turkey_agent
+        #     continue
         if power == austria:
             agents[power] = austria_agent
             continue
@@ -470,7 +470,7 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    default_weights = Path("data/sl_params.npz")
+    default_weights = Path("data/fppi2_params.npz")
     if not default_weights.is_file():
         raise SystemExit(
             "Default weights expected at "
@@ -478,12 +478,23 @@ if __name__ == "__main__":
             "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
         )
 
-    run_standard_board_with_mixed_deepmind_and_random(
+
+    run_standard_board_with_deepmind_turkey(
+    # finish par
         weights_path=default_weights,
-        num_games=1,
-        rounds=10,
+        rounds=100,
         visualize=False,
-        seed=123,
+        seed=42,
         hold_probability=0.1,
         temperature=0.2,
     )
+
+    # run_standard_board_with_mixed_deepmind_and_random(
+    #     weights_path=default_weights,
+    #     num_games=5,
+    #     rounds=30,
+    #     visualize=False,
+    #     seed=123,
+    #     hold_probability=0.1,
+    #     temperature=0.2,
+    # )
