@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
+from collections import OrderedDict
+
 import numpy as np
 
 from ..state import GameState
@@ -46,6 +48,10 @@ class DeepMindSlAgent(Agent):
         # Parameters for sampled best-response search.
         self._k_candidates = k_candidates       # K: number of candidate moves
         self._action_rollouts = action_rollouts # N: rollouts per candidate
+
+        # Cache of state-value lookups to avoid repeated policy calls within a turn.
+        self._value_cache: "OrderedDict[Tuple[Any, ...], Dict[Power, float]]" = OrderedDict()
+        self._value_cache_capacity = 256
 
     # ------------------------------------------------------------------------
     # Public planning API used by simulation.run_rounds_with_agents
@@ -106,6 +112,13 @@ class DeepMindSlAgent(Agent):
         - read the 'values' entry from the returned info dict
         - index into it using the power's slot.
         """
+        signature = self._value_signature(state)
+        cached = self._value_cache.get(signature)
+        if cached is not None and power in cached:
+            # Refresh recency for simple LRU eviction.
+            self._value_cache.move_to_end(signature)
+            return cached[power]
+
         observation = build_observation(state, last_actions=[])
         legal_actions = legal_actions_from_state(state)
         # If there are no legal actions (should be rare), just return 0.
@@ -128,9 +141,22 @@ class DeepMindSlAgent(Agent):
 
         try:
             # values is assumed to be a 1D array aligned with 'powers'.
-            return float(values[powers.index(power)])
+            result = float(values[powers.index(power)])
         except (ValueError, IndexError, TypeError):
             return 0.0
+
+        # Store the full vector for other powers to share the lookup.
+        try:
+            cache_entry = {p: float(values[idx]) for idx, p in enumerate(powers)}
+            # Evict the oldest entry if we exceed capacity.
+            if len(self._value_cache) >= self._value_cache_capacity:
+                self._value_cache.popitem(last=False)
+            self._value_cache[signature] = cache_entry
+        except Exception:
+            # Best-effort cache; ignore failures from unexpected value types.
+            pass
+
+        return result
 
     def _best_response_action_indices(self, state: GameState) -> List[int]:
         """Sample K candidate actions for me and evaluate each with N rollouts.
@@ -212,6 +238,19 @@ class DeepMindSlAgent(Agent):
 
         assert best_candidate is not None
         return best_candidate
+
+    @staticmethod
+    def _value_signature(state: GameState) -> Tuple[Any, ...]:
+        """Hashable signature of the public board state for value caching."""
+
+        unit_signature = tuple(
+            sorted((province, unit.power, unit.unit_type.name) for province, unit in state.units.items())
+        )
+        retreat_signature = tuple(
+            sorted((province, unit.power, unit.unit_type.name) for province, unit in state.pending_retreats.items())
+        )
+        controller_signature = tuple(sorted(state.supply_center_control.items()))
+        return (state.phase.name, unit_signature, retreat_signature, controller_signature)
 
 
 
@@ -465,24 +504,7 @@ class BaselineNegotiatorAgent(DeepMindSlAgent):
         return filtered or legal
 
     def _state_value(self, state: GameState, power: Power) -> float:
-        observation = build_observation(state, last_actions=[])
-        legal_actions = legal_actions_from_state(state)
-        if not legal_actions:
-            return 0.0
-        powers = sorted(state.powers, key=str)
-        slots_list: Sequence[int] = list(range(len(powers)))
-        _, info = self._policy.actions(
-            slots_list=slots_list,
-            observation=observation,
-            legal_actions=legal_actions,
-        )
-        values = info.get("values") if isinstance(info, dict) else None
-        if values is None:
-            return 0.0
-        try:
-            return float(values[powers.index(power)])
-        except ValueError:
-            return 0.0
+        return super()._state_value(state, power)
 
     def _step_state(
         self, state: GameState, joint_actions: Mapping[Power, Sequence[int]]
