@@ -87,7 +87,10 @@ class ValueVisualizationTest(unittest.TestCase):
 
         cfg = net_config.get_config()
         network_cls = cfg.network_class
-        network_kwargs = dict(cfg.network_kwargs)
+        # Use training mode when seeding random parameters so that batch norm
+        # statistics are initialized. The handler below will use the same
+        # configuration for inference.
+        network_kwargs = dict(cfg.network_kwargs, is_training=True)
         provider = _RandomParameterProvider(network_cls, network_kwargs)
         handler = parameter_provider.SequenceNetworkHandler(
             network_cls=network_cls,
