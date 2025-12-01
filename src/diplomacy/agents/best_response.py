@@ -57,8 +57,34 @@ class SampledBestResponsePolicy:
     def _candidate_orders(self, state: GameState, unit: Unit) -> List[Order]:
         moves = state.legal_moves_from(unit.loc)
         orders = [hold(unit)]
-        for destination in moves:
-            orders.append(move(unit, destination))
+        orders.extend(move(unit, destination) for destination in moves)
+
+        friendly_units = [
+            other for other in state.units.values() if other.power == unit.power
+        ]
+        legal_moves_map = {
+            other.loc: state.legal_moves_from(other.loc) for other in friendly_units
+        }
+
+        support_hold_targets = sorted(
+            nbr
+            for nbr in state.graph.neighbors(unit.loc)
+            if nbr in state.units and state.units[nbr].power == unit.power
+        )
+        orders.extend(support_hold(unit, friend) for friend in support_hold_targets)
+
+        support_move_options = {
+            (friend.loc, destination)
+            for destination in state.graph.neighbors(unit.loc)
+            for friend in friendly_units
+            if friend.loc != unit.loc
+            and destination in legal_moves_map.get(friend.loc, [])
+        }
+        orders.extend(
+            support_move(unit, friend_from, friend_to)
+            for friend_from, friend_to in sorted(support_move_options)
+        )
+
         return orders
 
     def plan_builds(
