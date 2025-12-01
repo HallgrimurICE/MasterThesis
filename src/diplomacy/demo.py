@@ -230,17 +230,21 @@ def run_standard_board_with_deepmind_turkey(
     hold_probability: float = 0.2,
     stop_on_winner: bool = True,
     temperature: float = 0.2,
+    random_powers: Optional[List[Power]] = None,
+    deepmind_configs: Optional[List[Tuple[Power, int, int]]] = None,
 ) -> None:
-    """Run the standard board demo with Turkey controlled by DeepMind's SL agent.
+    """Run the standard board demo with three DeepMind SL agents vs four RandomAgents.
 
     Args:
-        weights_path: Filesystem path to ``sl_params.npz`` from the public release.
         rounds: Maximum number of movement rounds to simulate.
         visualize: Whether to open the visualization mesh at the end of the run.
         seed: Optional PRNG seed shared across all agents for reproducibility.
         hold_probability: Probability a random agent issues a hold order.
         stop_on_winner: Stop early when a winner is detected.
         temperature: Softmax temperature to apply when sampling from the SL policy.
+        random_powers: Powers to control with RandomAgent (defaults to England, France, Germany, Italy).
+        deepmind_configs: Optional explicit list of (Power, k_candidates, action_rollouts) tuples;
+            defaults to three DeepMind agents with configs (1,1), (1,2), (3,2) on the remaining powers.
     """
 
     weights_path = Path(weights_path)
@@ -254,46 +258,60 @@ def run_standard_board_with_deepmind_turkey(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    # turkey = Power("Turkey")
-    
-    # turkey_seed = base_rng.randint(0, 2**32 - 1)
+    random_powers = random_powers or [
+        Power("Austria"),
+        Power("France"),
+        Power("Russia"),
+        Power("Italy"),
+    ]
 
-    austria = Power("Austria")
-    austria_seed = base_rng.randint(0, 2**32 - 1)
+    if deepmind_configs is None:
+        remaining_powers = [
+            p for p in sorted(state.powers, key=str) if p not in random_powers
+        ]
+        rollout_grid = [(1, 1), (1, 2), (3, 2)]
+        if len(remaining_powers) != len(rollout_grid):
+            raise ValueError(
+                f"Expected {len(rollout_grid)} non-random powers (got {len(remaining_powers)}). "
+                f"Got: {remaining_powers}. "
+                "Please provide `deepmind_configs` explicitly to adjust the agent assignments."
+            )
+        deepmind_configs = [
+            (power, k_candidates, action_rollouts)
+            for power, (k_candidates, action_rollouts) in zip(
+                remaining_powers, rollout_grid
+            )
+        ]
+    print("\nDeepMind agent configs (power, k_candidates, action_rollouts):")
+    for power, k, n in deepmind_configs:
+        print(f"  {power}: k_candidates={k}, action_rollouts={n}")
 
-
-    # Use the DeepMind SL agent we just wrote
-    # turkey_agent = DeepMindSlAgent(
-    #     power=turkey,
-    #     sl_params_path=str(weights_path),
-    #     rng_seed=turkey_seed,
-    #     temperature=temperature,
-    # )
-
-    austria_agent = DeepMindSlAgent(
-        power=austria,
-        sl_params_path=str(weights_path),
-        rng_seed=austria_seed,
-        temperature=temperature
-    )
-
-
+    dm_by_power = {power: (k, n) for power, k, n in deepmind_configs}
 
     agents: Dict[Power, Agent] = {}
-    for power in sorted(state.powers, key=str):
-        # if power == turkey:
-        #     agents[power] = turkey_agent
-        #     continue
-        if power == austria:
-            agents[power] = austria_agent
-            continue
+    for power in sorted(random_powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
+        )
+
+    for power, (k_candidates, action_rollouts) in dm_by_power.items():
         agent_seed = base_rng.randint(0, 2**32 - 1)
         agents[power] = DeepMindSlAgent(
             power=power,
             sl_params_path=str(weights_path),
             rng_seed=agent_seed,
             temperature=temperature,
+            k_candidates=k_candidates,
+            action_rollouts=action_rollouts,
         )
+
+    missing = [p for p in sorted(state.powers, key=str) if p not in agents]
+    if missing:
+        missing_list = ", ".join(str(p) for p in missing)
+        raise ValueError(f"Agents must be provided for every power; missing: {missing_list}")
 
     states, titles, orders_history = run_rounds_with_agents(
         state,
@@ -306,7 +324,7 @@ def run_standard_board_with_deepmind_turkey(
     for round_index, orders in enumerate(orders_history, start=1):
         print(f"\nRound {round_index} orders:")
         for line in _format_orders_with_actions(orders):
-            print(line)
+            print(line) 
 
     winner = states[-1].winner
     if winner is not None:
@@ -482,17 +500,17 @@ if __name__ == "__main__":
     run_standard_board_with_deepmind_turkey(
     # finish par
         weights_path=default_weights,
-        rounds=100,
-        visualize=False,
+        visualize=True,
+        rounds=30,
         seed=42,
         hold_probability=0.1,
-        temperature=0.2,
+        temperature=0.1,
     )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
-    #     num_games=5,
-    #     rounds=30,
+    #     num_games=1,
+    #     rounds=5,
     #     visualize=False,
     #     seed=123,
     #     hold_probability=0.1,

@@ -16,7 +16,7 @@ for path in (SRC_DIR, POLICYTRAINING_DIR):
 try:  # noqa: E402
     from diplomacy.agents.best_response import SampledBestResponsePolicy
     from diplomacy.agents.random import RandomAgent
-    from diplomacy.maps import cooperative_attack_initial_state
+    from diplomacy.maps import standard_initial_state
     from diplomacy.orders import hold, move
     from diplomacy.simulation import run_rounds_with_agents
     from diplomacy.types import Power, Unit, UnitType
@@ -53,7 +53,7 @@ class SampledBestResponsePolicyTest(unittest.TestCase):
 
 class RandomAgentSimulationTest(unittest.TestCase):
     def test_random_agents_play_round(self):
-        initial_state = cooperative_attack_initial_state()
+        initial_state = standard_initial_state()
         agents = {
             power: RandomAgent(power, rng=random.Random(idx))
             for idx, power in enumerate(sorted(initial_state.powers, key=str))

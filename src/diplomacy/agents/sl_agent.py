@@ -53,7 +53,6 @@ class DeepMindSlAgent(Agent):
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
         """Plan a set of orders for this power in the given state.
 
-        Instead of sampling one action from the policy, we:
           - sample K candidate actions for this power
           - for each candidate, run N rollouts with other powers sampled
             from the policy

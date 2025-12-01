@@ -8,7 +8,7 @@ from .state import GameState
 from .types import Order, Power, UnitType
 
 
-def run_rounds_with_agents(
+def     run_rounds_with_agents(
     initial_state: GameState,
     agents: Dict[Power, Agent],
     rounds: int,
@@ -39,6 +39,7 @@ def run_rounds_with_agents(
     movement_round = 0
     while movement_round < rounds and (not stop_on_winner or state.winner is None):
         if state.phase.name.endswith("RETREAT"):
+            print(f"[Round {movement_round}] (Retreat phase)")
             retreat_orders: List[Order] = []
             for power, agent in agents.items():
                 if not any(u.power == power for u in state.pending_retreats.values()):
@@ -71,6 +72,9 @@ def run_rounds_with_agents(
             continue
 
         movement_round += 1
+        if movement_round % 1 == 0:
+            print(f"[Round {movement_round}]")
+    
         round_orders: List[Order] = []
         for power, agent in agents.items():
             if power not in state.powers:
