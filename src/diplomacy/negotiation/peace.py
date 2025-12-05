@@ -1,72 +1,61 @@
-"""Helpers for constructing RSS Peace contracts."""
-
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Iterable, Optional
 
-from ..deepmind.actions import decode_action_to_order
-from ..state import GameState
-from ..types import Order, OrderType, Power
 from .contracts import Contract
+from ..types import Order, OrderType, Power
+from ..deepmind.actions import decode_action_to_order
 
 
-def _attacks_power(order: Order | None, target_power: Power, state: GameState) -> bool:
-    """Return True if ``order`` attacks ``target_power``'s units or SCs."""
-
+def _is_attack_on(order: Optional[Order], target_power: Power, state) -> bool:
+    """Return True if ``order`` directly attacks a province held by ``target_power``."""
     if order is None:
         return False
-    if order.type not in {OrderType.MOVE, OrderType.SUPPORT, OrderType.RETREAT}:
-        return False
-
-    def threatens_location(location: str | None) -> bool:
-        if not location:
-            return False
-        occupying_unit = state.units.get(location)
-        if occupying_unit and occupying_unit.power == target_power:
+    if order.type == OrderType.MOVE and order.target:
+        unit = state.units.get(order.target)
+        if unit is not None and unit.power == target_power:
             return True
-        controller = state.supply_center_control.get(location)
+        controller = state.supply_center_control.get(order.target)
         if controller == target_power:
             return True
-        province = state.board.get(location)
-        return bool(province and province.is_supply_center and province.home_power == target_power)
+    if order.type == OrderType.SUPPORT and order.support_target:
+        unit = state.units.get(order.support_target)
+        if unit is not None and unit.power == target_power:
+            return True
+        controller = state.supply_center_control.get(order.support_target)
+        if controller == target_power:
+            return True
+    return False
 
-    if order.type == OrderType.SUPPORT:
-        return threatens_location(order.support_target)
-    return threatens_location(order.target)
 
-
-def _filter_non_aggressive_actions(
-    state: GameState,
-    acting_power: Power,
-    target_power: Power,
-    legal_actions: Sequence[int],
-) -> List[int]:
-    allowed: List[int] = []
+def _filter_non_hostile_actions(state, actor: Power, partner: Power, legal_actions: Iterable[int]) -> Iterable[int]:
+    allowed = []
     for encoded in legal_actions:
-        order = decode_action_to_order(state, acting_power, int(encoded))
-        if not _attacks_power(order, target_power, state):
+        order = decode_action_to_order(state, actor, int(encoded))
+        if not _is_attack_on(order, partner, state):
             allowed.append(int(encoded))
-    return allowed
+    # Fallback to full legal set if filter removes everything to avoid empty action lists.
+    return allowed or list(int(a) for a in legal_actions)
 
 
 def build_peace_contract(
-    state: GameState,
-    power_i: Power,
-    power_j: Power,
-    legal_i: Sequence[int],
-    legal_j: Sequence[int],
+    state,
+    player_i: Power,
+    player_j: Power,
+    legal_i,
+    legal_j,
 ) -> Contract:
-    """Return a Peace contract restricting ``power_i`` and ``power_j``.
+    """Peace contract that filters out actions hostile to the partner."""
 
-    Peace contracts forbid actions that attack the other party's units or supply
-    centers.  We follow the Round-Simultaneous Signaling (RSS) definition from
-    the DeepMind negotiation agent and encode the safe action sets as
-    ``Contract`` objects.
-    """
+    allowed_i = _filter_non_hostile_actions(state, player_i, player_j, legal_i)
+    allowed_j = _filter_non_hostile_actions(state, player_j, player_i, legal_j)
 
-    safe_i = frozenset(_filter_non_aggressive_actions(state, power_i, power_j, legal_i))
-    safe_j = frozenset(_filter_non_aggressive_actions(state, power_j, power_i, legal_j))
-    return Contract(player_i=power_i, player_j=power_j, allowed_i=safe_i, allowed_j=safe_j)
+    return Contract(
+        player_i=player_i,
+        player_j=player_j,
+        allowed_i=frozenset(allowed_i),
+        allowed_j=frozenset(allowed_j),
+    )
 
 
 __all__ = ["build_peace_contract"]

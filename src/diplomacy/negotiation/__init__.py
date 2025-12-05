@@ -1,15 +1,16 @@
-"""Negotiation helpers implementing RSS + Peace contracts."""
+from __future__ import annotations
 
 from .contracts import Contract, restrict_actions_for_power
+from .rss import run_rss_for_power, compute_active_contracts
 from .peace import build_peace_contract
-from .rss import compute_active_contracts, run_rss_for_power
-from .simulation import estimate_expected_value
+from .simulation import estimate_expected_value, estimate_expected_values
 
 __all__ = [
     "Contract",
     "restrict_actions_for_power",
-    "build_peace_contract",
     "run_rss_for_power",
     "compute_active_contracts",
+    "build_peace_contract",
     "estimate_expected_value",
+    "estimate_expected_values",
 ]

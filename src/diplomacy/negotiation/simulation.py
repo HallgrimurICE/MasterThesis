@@ -26,12 +26,7 @@ def estimate_expected_value(
     restricted_actions: Optional[Mapping[Power, Sequence[int]]] = None,
     rollouts: int = 4,
 ) -> float:
-    """Approximate ``E[V_i(next_state)]`` for ``target_power``.
-
-    Each rollout samples a joint action profile using the provided ``policy_fns``
-    (optionally restricted by a contract), advances the environment once via
-    ``step_fn``, and queries the shared value network on the resulting state.
-    """
+    """Approximate ``E[V_i(next_state)]`` for ``target_power``."""
 
     values = estimate_expected_values(
         state,

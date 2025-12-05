@@ -437,11 +437,13 @@ class GeneralObservationTransformer:
     if len(slots_list) != len(area_lists):
       raise ValueError('area_lists and slots_list different lengths')
 
+    max_orders = action_utils.MAX_ORDERS
+
     for player, area_list in zip(
         slots_list, area_lists):
-      sequence_lengths[player] = len(area_list)
+      sequence_lengths[player] = min(len(area_list), max_orders)
       previous_area = utils.INVALID_AREA_FLAG  # No last action on 1st iteration
-      for i, area in enumerate(area_list):
+      for i, area in enumerate(area_list[:max_orders]):
         last_action = 0
         if forced_actions is not None and i > 0:
           # Find the right last action, in case the forced actions are not in

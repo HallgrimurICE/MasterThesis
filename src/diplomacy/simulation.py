@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 from .adjudication import Adjudicator
-from .agents import Agent
+from .agents.base import Agent
 from .state import GameState
 from .types import Order, Power, UnitType
 
@@ -72,8 +72,8 @@ def     run_rounds_with_agents(
             continue
 
         movement_round += 1
-        if movement_round % 1 == 0:
-            print(f"[Round {movement_round}]")
+        # if movement_round % 1 == 0:
+            # print(f"[Round {movement_round}]")
     
         round_orders: List[Order] = []
         for power, agent in agents.items():

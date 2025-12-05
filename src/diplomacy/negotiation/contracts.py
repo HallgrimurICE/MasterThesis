@@ -10,13 +10,7 @@ from ..types import Power
 
 @dataclass(frozen=True)
 class Contract:
-    """Bilateral contract limiting the actions of two powers.
-
-    The structure mirrors the (R_i, R_j) formulation described in the
-    DeepMind negotiation paper: ``allowed_i`` (resp. ``allowed_j``) specifies the
-    subset of legal action encodings that player ``player_i`` (resp. ``player_j``)
-    may choose while the contract is active.
-    """
+    """Bilateral contract limiting the actions of two powers."""
 
     player_i: Power
     player_j: Power
@@ -52,12 +46,7 @@ def restrict_actions_for_power(
     legal_actions: Sequence[int],
     contracts: Sequence[Contract],
 ) -> Sequence[int]:
-    """Restrict ``legal_actions`` according to all contracts involving ``power``.
-
-    The agent will ultimately sample orders only from this filtered list.  If the
-    intersection of all contract constraints is empty we gracefully return the
-    original ``legal_actions`` so that the agent never crashes mid-game.
-    """
+    """Restrict ``legal_actions`` according to all contracts involving ``power``."""
 
     matching = [allowed for contract in contracts if (allowed := contract.allowed_for(power))]
     return _intersect_allowed(legal_actions, matching)
