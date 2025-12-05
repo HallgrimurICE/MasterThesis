@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, 
 import numpy as np
 
 from ..state import GameState
-from ..types import Order, Power
+from ..types import Order, OrderType, Power
 from .base import Agent
 
 from policytraining.run_sl import make_sl_policy
@@ -309,89 +309,6 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
             action_indices=list(actions[my_index]),
         )
 
-
-class DeepMindNegotiatorAgent(DeepMindSaveAgent):
-    def __init__(self, *args, rss_rollouts: int = 4, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._rss_rollouts = rss_rollouts
-
-    def _policy_fn(self, powers: Sequence[Power], idx: int):
-        def fn(state: GameState, _power: Power, legal_actions, restricted):
-            obs = build_observation(state, last_actions=[])
-            slots = list(range(len(powers)))
-            joint_legal = []
-            for p in powers:
-                allowed = restricted.get(p) if restricted and p in restricted else legal_actions[p]
-                joint_legal.append(np.asarray(allowed, dtype=np.int64))
-            actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=joint_legal)
-            return list(actions[idx])
-        return fn
-
-    def _build_rollout_agents(self, state: GameState, contracts) -> Dict[Power, Agent]:
-        return {p: _ContractAwareSlPolicyAgent(p, self._policy, contracts) for p in state.powers}
-
-    def _best_response_action_indices(self, state: GameState) -> List[int]:
-        powers = sorted(state.powers, key=str)
-        raw_legal = list(legal_actions_from_state(state))
-        if not raw_legal:
-            return []
-
-        # RSS proposals -> contracts
-        legal_map = {p: list(raw_legal[i]) for i, p in enumerate(powers)}
-        policy_fns = {p: self._policy_fn(powers, i) for i, p in enumerate(powers)}
-        proposals = {
-            p: run_rss_for_power(
-                state=state,
-                power=p,
-                powers=powers,
-                legal_actions=legal_map,
-                policy_fns=policy_fns,
-                value_fn=lambda s, pow=p: self._state_value(s, pow),
-                step_fn=self._step_state,
-                rollouts=self._rss_rollouts,
-            )
-            for p in powers
-        }
-        contracts = compute_active_contracts(state, powers, legal_map, proposals)
-
-        # Restrict legal actions under contracts
-        restricted = [
-            np.asarray(restrict_actions_for_power(p, raw_legal[i], contracts), dtype=np.int64)
-            for i, p in enumerate(powers)
-        ]
-
-        # SAVE best-response with restricted actions and contract-aware rollouts
-        observation = build_observation(state, last_actions=[])
-        rollout_agents = self._build_rollout_agents(state, contracts)
-        my_index = powers.index(self.power)
-        K = getattr(self, "_k_candidates", 8)
-        N = getattr(self, "_action_rollouts", 4)
-
-        best_val, best_candidate = float("-inf"), None
-        slots = list(range(len(powers)))
-        for _ in range(K):
-            joint_actions, _ = self._policy.actions(
-                slots_list=slots,
-                observation=observation,
-                legal_actions=restricted,
-            )
-            my_candidate = list(joint_actions[my_index])
-            candidate_orders = decode_actions_to_orders(state, self.power, my_candidate)
-            score = save(
-                initial_state=state,
-                focal_power=self.power,
-                candidate_orders=candidate_orders,
-                agents=rollout_agents,
-                n_rollouts=N,
-                horizon=1,
-                value_fn=sl_state_value,
-                value_kwargs={"policy": self._policy},
-            )
-            if score > best_val:
-                best_val, best_candidate = score, my_candidate
-
-        return best_candidate or []
-
 class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
     def __init__(self, power: Power, policy, contracts):
         super().__init__(power, policy)
@@ -428,9 +345,18 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
 
 
 class DeepMindNegotiatorAgent(DeepMindSaveAgent):
-    def __init__(self, *args, rss_rollouts: int = 4, **kwargs):
+    def __init__(self, *args, rss_rollouts: int = 4, relationship_decay: float = 0.95, relationship_step: float = 0.2, propose_threshold: float = 0.0, **kwargs):
         super().__init__(*args, **kwargs)
         self._rss_rollouts = rss_rollouts
+        self._relationship: Dict[Power, float] = {}
+        self._last_seen_state: Optional[GameState] = None
+        self._relationship_decay = relationship_decay
+        self._relationship_step = relationship_step
+        self._propose_threshold = propose_threshold
+
+    def issue_orders(self, state: GameState) -> List[Order]:
+        self._update_relationships(state)
+        return super().issue_orders(state)
 
     def _policy_fn(self, powers: Sequence[Power], idx: int):
         def fn(state: GameState, _power: Power, legal_actions, restricted):
@@ -449,6 +375,7 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
 
     def _best_response_action_indices(self, state: GameState) -> List[int]:
         powers = sorted(state.powers, key=str)
+        self._ensure_relationships(powers)
         raw_legal = list(legal_actions_from_state(state))
         if not raw_legal:
             return []
@@ -469,6 +396,12 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
             )
             for p in powers
         }
+        # Apply simple trust gating: refuse to propose peace to partners below threshold.
+        if self.power in proposals:
+            proposals[self.power] = {
+                other for other in proposals[self.power] if self._relationship.get(other, 0.0) >= self._propose_threshold
+            }
+
         contracts = compute_active_contracts(state, powers, legal_map, proposals)
 
         # Restrict legal actions under contracts
@@ -504,7 +437,71 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 value_fn=sl_state_value,
                 value_kwargs={"policy": self._policy},
             )
+            score -= self._trust_penalty(state, candidate_orders)
             if score > best_val:
                 best_val, best_candidate = score, my_candidate
 
         return best_candidate or []
+
+    def _ensure_relationships(self, powers: Sequence[Power]) -> None:
+        for p in powers:
+            if p == self.power:
+                continue
+            self._relationship.setdefault(p, 0.0)
+
+    def _update_relationships(self, state: GameState) -> None:
+        powers = sorted(state.powers, key=str)
+        self._ensure_relationships(powers)
+        if self._last_seen_state is None:
+            self._last_seen_state = state.copy()
+            return
+
+        # Mild decay toward neutral.
+        for p, val in list(self._relationship.items()):
+            self._relationship[p] = max(-1.0, min(1.0, val * self._relationship_decay))
+
+        prev_sc = self._last_seen_state.supply_center_control
+        curr_sc = state.supply_center_control
+        for province, controller in prev_sc.items():
+            if controller != self.power:
+                continue
+            current_controller = curr_sc.get(province)
+            if current_controller is None or current_controller == self.power:
+                continue
+            # Losing a center to another power lowers trust.
+            self._adjust_relationship(current_controller, -self._relationship_step)
+
+        # If an enemy now occupies a province we previously occupied, treat it as hostile.
+        for province, unit in self._last_seen_state.units.items():
+            if unit.power != self.power:
+                continue
+            occupying = state.units.get(province)
+            if occupying is not None and occupying.power != self.power:
+                self._adjust_relationship(occupying.power, -self._relationship_step * 0.5)
+
+        self._last_seen_state = state.copy()
+
+    def _adjust_relationship(self, power: Power, delta: float) -> None:
+        if power == self.power:
+            return
+        self._relationship[power] = max(-1.0, min(1.0, self._relationship.get(power, 0.0) + delta))
+
+    def _trust_penalty(self, state: GameState, candidate_orders: Sequence[Order]) -> float:
+        """Discourage attacking high-trust partners."""
+        penalty = 0.0
+        for order in candidate_orders:
+            if order.type == OrderType.MOVE and order.target:
+                target_unit = state.units.get(order.target)
+                target_owner = target_unit.power if target_unit else state.supply_center_control.get(order.target)
+                penalty += self._attack_penalty(target_owner)
+            elif order.type == OrderType.SUPPORT and order.support_target:
+                target_unit = state.units.get(order.support_target)
+                target_owner = target_unit.power if target_unit else state.supply_center_control.get(order.support_target)
+                penalty += 0.5 * self._attack_penalty(target_owner)
+        return penalty
+
+    def _attack_penalty(self, owner: Optional[Power]) -> float:
+        if owner is None or owner == self.power:
+            return 0.0
+        rel = self._relationship.get(owner, 0.0)
+        return rel * 0.5 if rel > 0.0 else 0.0
