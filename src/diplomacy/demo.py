@@ -125,6 +125,7 @@ def run_triangle_board_with_random_agents(
     *,
     seed: Optional[int] = None,
     hold_probability: float = 0.2,
+    visualize: bool = False,
 ) -> None:
     """Run a short simulation on the triangle board with three random agents."""
 
@@ -140,13 +141,15 @@ def run_triangle_board_with_random_agents(
             rng=random.Random(agent_seed),
         )
 
-    run_rounds_with_agents(
+    states, titles, _ = run_rounds_with_agents(
         state,
         agents,
         rounds,
         title_prefix="Triangle Board After Round {round}",
         stop_on_winner=False,
     )
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
 
 def deepmind_single_move_latency(
     *,
@@ -492,6 +495,7 @@ __all__ = [
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
+    "run_triangle_board_with_random_agents",
     "run_standard_board_with_mixed_deepmind_and_random",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
