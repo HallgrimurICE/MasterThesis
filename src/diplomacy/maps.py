@@ -74,6 +74,21 @@ def triangle_board() -> Dict[str, Province]:
     return board
 
 
+def triangle_initial_state() -> GameState:
+    board = triangle_board()
+    units = {
+        "RED": Unit(Power("Red"), "RED", UnitType.ARMY),
+        "BLUE": Unit(Power("Blue"), "BLUE", UnitType.ARMY),
+        "GREEN": Unit(Power("Green"), "GREEN", UnitType.ARMY),
+    }
+    powers: Set[Power] = {
+        Power("Red"),
+        Power("Blue"),
+        Power("Green"),
+    }
+    return GameState(board=board, units=units, powers=powers)
+
+
 def standard_board() -> Dict[str, Province]:
     board: Dict[str, Province] = {
         'NAO': Province(
@@ -649,6 +664,7 @@ __all__ = [
     "build_graph",
     "square_board",
     "triangle_board",
+    "triangle_initial_state",
     "cooperative_attack_initial_state",
     "mesh_board_5x3",
     "demo_state_mesh",

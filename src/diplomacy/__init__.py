@@ -10,7 +10,7 @@ from .orders import hold, move, support_hold, support_move, retreat
 from .state import GameState
 from .adjudication import Resolution, Adjudicator
 from .simulation import run_rounds_with_agents
-from .maps import build_graph, standard_board, triangle_board
+from .maps import build_graph, standard_board, triangle_board, triangle_initial_state
 from .agents import (
     Agent,
     ScriptedAgent,
@@ -21,6 +21,7 @@ from .agents import (
 )
 from .demo import (
     run_standard_board_with_deepmind_turkey,
+    run_triangle_board_with_random_agents,
 )
 from .viz.mesh import (
     visualize_state,
@@ -48,6 +49,7 @@ __all__ = [
     "build_graph",
     "standard_board",
     "triangle_board",
+    "triangle_initial_state",
     "demo_state_mesh",
     "Agent",
     "ScriptedAgent",
@@ -60,6 +62,7 @@ __all__ = [
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
+    "run_triangle_board_with_random_agents",
     "visualize_state",
     "visualize_state_mesh",
     "interactive_visualize_state_mesh",

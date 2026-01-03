@@ -13,6 +13,7 @@ from .agents import (
 )
 from .maps import (
     standard_initial_state,
+    triangle_initial_state,
 )
 from .agents.sl_agent import DeepMindSlAgent, BaselineNegotiatorAgent
 from .orders import hold, move, support_hold, support_move
@@ -117,6 +118,35 @@ def run_standard_board_with_random_england(
             print(line)
 
     interactive_visualize_state_mesh(states, titles)
+
+
+def run_triangle_board_with_random_agents(
+    rounds: int = 10,
+    *,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+) -> None:
+    """Run a short simulation on the triangle board with three random agents."""
+
+    state = triangle_initial_state()
+    rng = random.Random(seed)
+    agents: Dict[Power, Agent] = {}
+    for name in ("Red", "Blue", "Green"):
+        power = Power(name)
+        agent_seed = rng.randint(0, 2**32 - 1)
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
+        )
+
+    run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Triangle Board After Round {round}",
+        stop_on_winner=False,
+    )
 
 def deepmind_single_move_latency(
     *,
