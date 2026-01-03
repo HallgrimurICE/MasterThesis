@@ -124,10 +124,9 @@ def run_triangle_board_with_random_agents(
     rounds: int = 10,
     *,
     seed: Optional[int] = None,
-    hold_probability: float = 0.2,
     visualize: bool = False,
 ) -> None:
-    """Run a short simulation on the triangle board with three random agents."""
+    """Run a short simulation on the triangle board with heuristic agents."""
 
     state = triangle_initial_state()
     rng = random.Random(seed)
@@ -135,11 +134,8 @@ def run_triangle_board_with_random_agents(
     for name in ("Red", "Blue", "Green"):
         power = Power(name)
         agent_seed = rng.randint(0, 2**32 - 1)
-        agents[power] = RandomAgent(
-            power,
-            hold_probability=hold_probability,
-            rng=random.Random(agent_seed),
-        )
+        policy = SampledBestResponsePolicy(rng=random.Random(agent_seed))
+        agents[power] = ObservationBestResponseAgent(power, policy=policy)
 
     states, titles, _ = run_rounds_with_agents(
         state,
