@@ -46,6 +46,49 @@ def square_board() -> Dict[str, Province]:
     return board
 
 
+def triangle_board() -> Dict[str, Province]:
+    adjacency = {
+        "RED": {"RB", "GR", "MID"},
+        "BLUE": {"RB", "BG", "MID"},
+        "GREEN": {"BG", "GR", "MID"},
+        "RB": {"RED", "BLUE", "MID"},
+        "BG": {"BLUE", "GREEN", "MID"},
+        "GR": {"GREEN", "RED", "MID"},
+        "MID": {"RED", "BLUE", "GREEN", "RB", "BG", "GR"},
+    }
+    home_lookup = {
+        "RED": Power("Red"),
+        "BLUE": Power("Blue"),
+        "GREEN": Power("Green"),
+    }
+    supply_centers = {"RED", "BLUE", "GREEN", "MID"}
+    board: Dict[str, Province] = {}
+    for name, neighbors in adjacency.items():
+        board[name] = Province(
+            name=name,
+            neighbors=set(neighbors),
+            is_supply_center=name in supply_centers,
+            home_power=home_lookup.get(name),
+            province_type=ProvinceType.LAND,
+        )
+    return board
+
+
+def triangle_initial_state() -> GameState:
+    board = triangle_board()
+    units = {
+        "RED": Unit(Power("Red"), "RED", UnitType.ARMY),
+        "BLUE": Unit(Power("Blue"), "BLUE", UnitType.ARMY),
+        "GREEN": Unit(Power("Green"), "GREEN", UnitType.ARMY),
+    }
+    powers: Set[Power] = {
+        Power("Red"),
+        Power("Blue"),
+        Power("Green"),
+    }
+    return GameState(board=board, units=units, powers=powers)
+
+
 def standard_board() -> Dict[str, Province]:
     board: Dict[str, Province] = {
         'NAO': Province(
@@ -620,6 +663,8 @@ def standard_initial_state() -> GameState:
 __all__ = [
     "build_graph",
     "square_board",
+    "triangle_board",
+    "triangle_initial_state",
     "cooperative_attack_initial_state",
     "mesh_board_5x3",
     "demo_state_mesh",

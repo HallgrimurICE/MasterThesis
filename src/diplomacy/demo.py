@@ -15,6 +15,7 @@ from .agents import (
 )
 from .maps import (
     standard_initial_state,
+    triangle_initial_state,
 )
 try:
     from .agents.sl_agent import DeepMindNegotiatorAgent
@@ -258,6 +259,38 @@ def run_standard_board_with_random_england(
             print(line)
 
     interactive_visualize_state_mesh(states, titles)
+
+
+def run_triangle_board_with_random_agents(
+    rounds: int = 10,
+    *,
+    seed: Optional[int] = None,
+    visualize: bool = False,
+) -> None:
+    """Run a short simulation on the triangle board with heuristic agents."""
+
+    state = triangle_initial_state()
+    rng = random.Random(seed)
+    agents: Dict[Power, Agent] = {}
+    for name in ("Red", "Blue", "Green"):
+        power = Power(name)
+        agent_seed = rng.randint(0, 2**32 - 1)
+        policy = SampledBestResponsePolicy(rng=random.Random(agent_seed))
+        agents[power] = ObservationBestResponseAgent(power, policy=policy)
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Triangle Board After Round {round}",
+        stop_on_winner=False,
+    )
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
 
 def deepmind_single_move_latency(
     *,
@@ -859,7 +892,11 @@ __all__ = [
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
+<<<<<<< HEAD
     "run_standard_board_br_vs_neg",
+=======
+    "run_triangle_board_with_random_agents",
+>>>>>>> 3f8ca4407203c8caa2d7ab1e3eaedf0b5f1af101
     "run_standard_board_with_mixed_deepmind_and_random",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
@@ -869,18 +906,33 @@ __all__ = [
 
 
 if __name__ == "__main__":
+    run_triangle_board_with_random_agents(rounds=10, visualize=False)
+
     default_weights = Path("data/fppi2_params.npz")
-    if not default_weights.is_file():
-        raise SystemExit(
+    if default_weights.is_file():
+        run_standard_board_with_deepmind_turkey(
+            weights_path=default_weights,
+            rounds=100,
+            visualize=False,
+            seed=42,
+            hold_probability=0.1,
+            temperature=0.2,
+        )
+    else:
+        print(
             "Default weights expected at "
             f"{default_weights}. Download DeepMind's sl_params.npz (see diplomacy-main/README.md) "
             "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
         )
 
+<<<<<<< HEAD
     # import time 
     # start_time = time.time()
     # run_standard_board_with_deepmind_turkey(
     # # finish par
+=======
+    # run_standard_board_with_mixed_deepmind_and_random(
+>>>>>>> 3f8ca4407203c8caa2d7ab1e3eaedf0b5f1af101
     #     weights_path=default_weights,
     #     visualize=False,
     #     rounds=50,

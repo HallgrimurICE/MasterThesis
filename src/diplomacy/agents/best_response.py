@@ -59,6 +59,17 @@ class SampledBestResponsePolicy:
         orders = [hold(unit)]
         for destination in moves:
             orders.append(move(unit, destination))
+        neighbors = set(state.graph.neighbors(unit.loc))
+        friendly_units = [
+            other for other in state.units.values() if other.power == unit.power and other.loc != unit.loc
+        ]
+        for friendly in friendly_units:
+            if friendly.loc in neighbors:
+                orders.append(support_hold(unit, friendly.loc))
+        for friendly in friendly_units:
+            for destination in state.legal_moves_from(friendly.loc):
+                if destination in neighbors:
+                    orders.append(support_move(unit, friendly.loc, destination))
         return orders
 
     def plan_builds(
