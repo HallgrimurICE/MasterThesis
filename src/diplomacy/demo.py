@@ -137,13 +137,17 @@ def run_triangle_board_with_random_agents(
         policy = SampledBestResponsePolicy(rng=random.Random(agent_seed))
         agents[power] = ObservationBestResponseAgent(power, policy=policy)
 
-    states, titles, _ = run_rounds_with_agents(
+    states, titles, orders_history = run_rounds_with_agents(
         state,
         agents,
         rounds,
         title_prefix="Triangle Board After Round {round}",
         stop_on_winner=False,
     )
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
     if visualize:
         interactive_visualize_state_mesh(states, titles)
 
