@@ -10,7 +10,7 @@ from .orders import hold, move, support_hold, support_move, retreat
 from .state import GameState
 from .adjudication import Resolution, Adjudicator
 from .simulation import run_rounds_with_agents
-from .maps import build_graph, standard_board
+from .maps import build_graph, standard_board, triangle_board
 from .agents import (
     Agent,
     ScriptedAgent,
@@ -47,6 +47,7 @@ __all__ = [
     "run_rounds_with_agents",
     "build_graph",
     "standard_board",
+    "triangle_board",
     "demo_state_mesh",
     "Agent",
     "ScriptedAgent",
