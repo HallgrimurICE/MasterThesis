@@ -500,24 +500,24 @@ __all__ = [
 
 
 if __name__ == "__main__":
+    run_triangle_board_with_random_agents(rounds=10, visualize=False)
+
     default_weights = Path("data/fppi2_params.npz")
-    if not default_weights.is_file():
-        raise SystemExit(
+    if default_weights.is_file():
+        run_standard_board_with_deepmind_turkey(
+            weights_path=default_weights,
+            rounds=100,
+            visualize=False,
+            seed=42,
+            hold_probability=0.1,
+            temperature=0.2,
+        )
+    else:
+        print(
             "Default weights expected at "
             f"{default_weights}. Download DeepMind's sl_params.npz (see diplomacy-main/README.md) "
             "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
         )
-
-
-    run_standard_board_with_deepmind_turkey(
-    # finish par
-        weights_path=default_weights,
-        rounds=100,
-        visualize=False,
-        seed=42,
-        hold_probability=0.1,
-        temperature=0.2,
-    )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
