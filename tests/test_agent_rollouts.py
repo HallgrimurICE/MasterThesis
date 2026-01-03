@@ -15,8 +15,9 @@ for path in (SRC_DIR, POLICYTRAINING_DIR):
 
 try:  # noqa: E402
     from diplomacy.agents.best_response import SampledBestResponsePolicy
+    from diplomacy.agents.heuristic_agent import HeuristicAgent
     from diplomacy.agents.random import RandomAgent
-    from diplomacy.maps import cooperative_attack_initial_state
+    from diplomacy.maps import cooperative_attack_initial_state, standard_initial_state
     from diplomacy.orders import hold, move
     from diplomacy.simulation import run_rounds_with_agents
     from diplomacy.types import Power, Unit, UnitType
@@ -56,6 +57,29 @@ class RandomAgentSimulationTest(unittest.TestCase):
         initial_state = cooperative_attack_initial_state()
         agents = {
             power: RandomAgent(power, rng=random.Random(idx))
+            for idx, power in enumerate(sorted(initial_state.powers, key=str))
+        }
+
+        states, titles, orders_history = run_rounds_with_agents(
+            initial_state, agents, rounds=1
+        )
+
+        self.assertEqual(len(states), 2)
+        self.assertEqual(len(titles), 2)
+        self.assertEqual(len(orders_history), 1)
+
+        first_round_orders = orders_history[0]
+        for power in initial_state.powers:
+            unit_count = sum(1 for unit in initial_state.units.values() if unit.power == power)
+            power_orders = [order for order in first_round_orders if order.unit.power == power]
+            self.assertEqual(len(power_orders), unit_count)
+
+
+class HeuristicAgentStandardMapTest(unittest.TestCase):
+    def test_heuristic_agents_play_round(self):
+        initial_state = standard_initial_state()
+        agents = {
+            power: HeuristicAgent(power, rng_seed=idx)
             for idx, power in enumerate(sorted(initial_state.powers, key=str))
         }
 
