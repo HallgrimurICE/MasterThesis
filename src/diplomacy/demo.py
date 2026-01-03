@@ -7,6 +7,7 @@ import time
 from .adjudication import Adjudicator, Resolution
 from .agents import (
     Agent,
+    HeuristicAgent,
     ObservationBestResponseAgent,
     RandomAgent,
     SampledBestResponsePolicy,
@@ -134,8 +135,7 @@ def run_triangle_board_with_random_agents(
     for name in ("Red", "Blue", "Green"):
         power = Power(name)
         agent_seed = rng.randint(0, 2**32 - 1)
-        policy = SampledBestResponsePolicy(rng=random.Random(agent_seed))
-        agents[power] = ObservationBestResponseAgent(power, policy=policy)
+        agents[power] = HeuristicAgent(power, rng_seed=agent_seed)
 
     states, titles, orders_history = run_rounds_with_agents(
         state,
