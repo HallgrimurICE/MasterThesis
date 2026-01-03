@@ -892,11 +892,7 @@ __all__ = [
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
-<<<<<<< HEAD
-    "run_standard_board_br_vs_neg",
-=======
     "run_triangle_board_with_random_agents",
->>>>>>> 3f8ca4407203c8caa2d7ab1e3eaedf0b5f1af101
     "run_standard_board_with_mixed_deepmind_and_random",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
@@ -925,14 +921,7 @@ if __name__ == "__main__":
             "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
         )
 
-<<<<<<< HEAD
-    # import time 
-    # start_time = time.time()
-    # run_standard_board_with_deepmind_turkey(
-    # # finish par
-=======
     # run_standard_board_with_mixed_deepmind_and_random(
->>>>>>> 3f8ca4407203c8caa2d7ab1e3eaedf0b5f1af101
     #     weights_path=default_weights,
     #     visualize=False,
     #     rounds=50,
