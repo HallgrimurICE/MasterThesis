@@ -266,6 +266,9 @@ def run_standard_board_with_deepmind_turkey(
 ) -> None:
     """Run the standard board demo with Turkey controlled by DeepMind's SL agent.
 
+    The remaining powers are driven by ``RandomAgent`` instances so the DeepMind
+    player competes against simple opponents rather than other SL agents.
+
     Args:
         weights_path: Filesystem path to ``sl_params.npz`` from the public release.
         rounds: Maximum number of movement rounds to simulate.
@@ -287,45 +290,26 @@ def run_standard_board_with_deepmind_turkey(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    # turkey = Power("Turkey")
-    
-    # turkey_seed = base_rng.randint(0, 2**32 - 1)
+    turkey = Power("Turkey")
+    turkey_seed = base_rng.randint(0, 2**32 - 1)
 
-    austria = Power("Austria")
-    austria_seed = base_rng.randint(0, 2**32 - 1)
-
-
-    # Use the DeepMind SL agent we just wrote
-    # turkey_agent = DeepMindSlAgent(
-    #     power=turkey,
-    #     sl_params_path=str(weights_path),
-    #     rng_seed=turkey_seed,
-    #     temperature=temperature,
-    # )
-
-    austria_agent = DeepMindSlAgent(
-        power=austria,
+    turkey_agent = DeepMindSlAgent(
+        power=turkey,
         sl_params_path=str(weights_path),
-        rng_seed=austria_seed,
-        temperature=temperature
+        rng_seed=turkey_seed,
+        temperature=temperature,
     )
-
-
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
-        # if power == turkey:
-        #     agents[power] = turkey_agent
-        #     continue
-        if power == austria:
-            agents[power] = austria_agent
+        if power == turkey:
+            agents[power] = turkey_agent
             continue
         agent_seed = base_rng.randint(0, 2**32 - 1)
-        agents[power] = DeepMindSlAgent(
-            power=power,
-            sl_params_path=str(weights_path),
-            rng_seed=agent_seed,
-            temperature=temperature,
+        agents[power] = RandomAgent(
+            power,
+            hold_probability=hold_probability,
+            rng=random.Random(agent_seed),
         )
 
     states, titles, orders_history = run_rounds_with_agents(
