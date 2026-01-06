@@ -410,6 +410,7 @@ def run_standard_board_with_heuristic_agents(
     base_profile_count: int = 8,
     random_ratio: float = 0.5,
     hold_probability: float = 0.2,
+    heuristic_powers: Optional[List[Power]] = None,
 ) -> None:
     """Run the standard board with heuristic best-response and random agents."""
 
@@ -418,8 +419,12 @@ def run_standard_board_with_heuristic_agents(
 
     agents: Dict[Power, Agent] = {}
     powers = sorted(state.powers, key=str)
-    random_count = max(0, min(len(powers), round(len(powers) * random_ratio)))
-    random_powers = set(powers[:random_count])
+    if heuristic_powers is not None:
+        heuristic_set = set(heuristic_powers)
+        random_powers = {power for power in powers if power not in heuristic_set}
+    else:
+        random_count = max(0, min(len(powers), round(len(powers) * random_ratio)))
+        random_powers = set(powers[:random_count])
     heuristic_powers = [power for power in powers if power not in random_powers]
     random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
     heuristic_power_list = ", ".join(str(power) for power in heuristic_powers)
@@ -987,7 +992,7 @@ if __name__ == "__main__":
         rollout_depth=1,
         rollout_limit=32,
         base_profile_count=6,
-        random_ratio=0.5,
+        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
     )
 
     # run_standard_board_with_mixed_deepmind_and_random(
