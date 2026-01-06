@@ -1405,25 +1405,33 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    run_triangle_board_with_random_agents(rounds=10, visualize=False)
-
-    run_standard_board_with_heuristic_agents(
-        rounds=50,
-        visualize=False,
-        seed=42,
-        rollout_depth=1,
-        rollout_limit=32,
-        base_profile_count=6,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
-    )
-    run_standard_board_heuristic_experiment(
+    run_standard_board_simple_negotiation_experiment(
         rounds=30,
-        games=20,
+        games=10,
         seed=7,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+        negotiator_powers=[Power("Russia"), Power("France"), Power("Turkey")],
         rollout_limit=24,
         base_profile_count=6,
     )
+
+    # run_triangle_board_with_random_agents(rounds=10, visualize=False)
+    # run_standard_board_with_heuristic_agents(
+    #     rounds=50,
+    #     visualize=False,
+    #     seed=42,
+    #     rollout_depth=1,
+    #     rollout_limit=32,
+    #     base_profile_count=6,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    # )
+    # run_standard_board_heuristic_experiment(
+    #     rounds=30,
+    #     games=20,
+    #     seed=7,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    #     rollout_limit=24,
+    #     base_profile_count=6,
+    # )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
