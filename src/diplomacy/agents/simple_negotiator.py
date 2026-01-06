@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from collections import OrderedDict
+import random
+from typing import Iterable, List, Set, Tuple
+
+from .base import Agent
+from .best_response import SampledBestResponsePolicy
+from ..state import GameState
+from ..types import Order, OrderType, Power, UnitType
+
+
+def _is_attack_on(order: Order, target_power: Power, state: GameState) -> bool:
+    if order.type == OrderType.MOVE and order.target:
+        unit = state.units.get(order.target)
+        if unit is not None and unit.power == target_power:
+            return True
+        controller = state.supply_center_control.get(order.target)
+        if controller == target_power:
+            return True
+    if order.type == OrderType.SUPPORT and order.support_target:
+        unit = state.units.get(order.support_target)
+        if unit is not None and unit.power == target_power:
+            return True
+        controller = state.supply_center_control.get(order.support_target)
+        if controller == target_power:
+            return True
+    return False
+
+
+def _restrict_candidate_map(
+    state: GameState,
+    candidate_map: "OrderedDict[str, List[Order]]",
+    peace_partners: Set[Power],
+) -> "OrderedDict[str, List[Order]]":
+    if not peace_partners:
+        return candidate_map
+    restricted: "OrderedDict[str, List[Order]]" = OrderedDict()
+    for loc, orders in candidate_map.items():
+        allowed = [
+            order
+            for order in orders
+            if not any(_is_attack_on(order, partner, state) for partner in peace_partners)
+        ]
+        restricted[loc] = allowed or list(orders)
+    return restricted
+
+
+class SimpleNegotiatorAgent(Agent):
+    """Negotiator that uses a lightweight order policy and peace filtering."""
+
+    def __init__(
+        self,
+        power: Power,
+        *,
+        policy: SampledBestResponsePolicy | None = None,
+        rng_seed: int = 0,
+    ) -> None:
+        super().__init__(power)
+        self._policy = policy or SampledBestResponsePolicy(rng=random.Random(rng_seed))
+        self._peace_partners: Set[Power] = set()
+
+    def set_peace_partners(self, partners: Iterable[Power]) -> None:
+        self._peace_partners = set(partners)
+
+    def plan_orders_with_peace(
+        self,
+        state: GameState,
+        partners: Iterable[Power],
+    ) -> List[Order]:
+        candidate_map = self._policy._build_candidate_order_map(state, self.power)  # type: ignore[attr-defined]
+        restricted = _restrict_candidate_map(state, candidate_map, set(partners))
+        best_orders, _ = self._policy._select_best_orders(  # type: ignore[attr-defined]
+            state,
+            self.power,
+            restricted,
+        )
+        return list(best_orders)
+
+    def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
+        del round_index
+        return self.plan_orders_with_peace(state, self._peace_partners)
+
+    def plan_builds(
+        self,
+        state: GameState,
+        build_count: int,
+    ) -> List[Tuple[str, UnitType]]:
+        return self._policy.plan_builds(state, self.power, build_count)
+
+
+__all__ = ["SimpleNegotiatorAgent"]
