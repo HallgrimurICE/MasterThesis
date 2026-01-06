@@ -395,6 +395,63 @@ def run_standard_board_with_random_agents(
         interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_with_heuristic_agents(
+    rounds: int = 50,
+    visualize: bool = False,
+    *,
+    seed: Optional[int] = None,
+    stop_on_winner: bool = True,
+    rollout_limit: int = 64,
+    rollout_depth: int = 1,
+    rollout_discount: float = 0.9,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+    base_profile_count: int = 8,
+) -> None:
+    """Run the standard board with heuristic best-response agents for every power."""
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        policy = SampledBestResponsePolicy(
+            rollout_limit=rollout_limit,
+            rollout_depth=rollout_depth,
+            rollout_discount=rollout_discount,
+            rng=random.Random(agent_seed),
+            unit_weight=unit_weight,
+            supply_center_weight=supply_center_weight,
+            threatened_penalty=threatened_penalty,
+            base_profile_count=base_profile_count,
+        )
+        agents[power] = ObservationBestResponseAgent(power, policy=policy)
+
+    states, titles, orders_history = run_rounds_with_agents(
+        state,
+        agents,
+        rounds,
+        title_prefix="Standard Board After Round {round}",
+        stop_on_winner=stop_on_winner,
+    )
+
+    for round_index, orders in enumerate(orders_history, start=1):
+        print(f"\nRound {round_index} orders:")
+        for line in _format_orders_with_actions(orders):
+            print(line)
+
+    winner = states[-1].winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
 def run_standard_board_with_deepmind_turkey(
     *,
     weights_path: str | Path,
@@ -891,6 +948,7 @@ __all__ = [
     "interactive_visualize_standard_board",
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
+    "run_standard_board_with_heuristic_agents",
     "run_standard_board_with_deepmind_turkey",
     "run_triangle_board_with_random_agents",
     "run_standard_board_with_mixed_deepmind_and_random",
@@ -904,22 +962,14 @@ __all__ = [
 if __name__ == "__main__":
     run_triangle_board_with_random_agents(rounds=10, visualize=False)
 
-    default_weights = Path("data/fppi2_params.npz")
-    if default_weights.is_file():
-        run_standard_board_with_deepmind_turkey(
-            weights_path=default_weights,
-            rounds=100,
-            visualize=False,
-            seed=42,
-            hold_probability=0.1,
-            temperature=0.2,
-        )
-    else:
-        print(
-            "Default weights expected at "
-            f"{default_weights}. Download DeepMind's sl_params.npz (see diplomacy-main/README.md) "
-            "and place it there, or call run_standard_board_with_deepmind_turkey with the correct path."
-        )
+    run_standard_board_with_heuristic_agents(
+        rounds=50,
+        visualize=False,
+        seed=42,
+        rollout_depth=1,
+        rollout_limit=32,
+        base_profile_count=6,
+    )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
@@ -939,12 +989,12 @@ if __name__ == "__main__":
     #     n_rollouts=2,
     #     max_candidates=2,
     # )
-    run_standard_board_br_vs_neg(
-        weights_path="data/fppi2_params.npz",
-        negotiation_powers=[Power("Turkey"), Power("France"), Power("Russia"), Power("Italy"), Power("England"), Power("Germany"), Power("Austria")],
-        # baseline_powers=[],
-        rounds=50,
-        rss_rollouts=2,
-        k_candidates=4,
-        action_rollouts=2,
-    )
+    # run_standard_board_br_vs_neg(
+    #     weights_path="data/fppi2_params.npz",
+    #     negotiation_powers=[Power("Turkey"), Power("France"), Power("Russia"), Power("Italy"), Power("England"), Power("Germany"), Power("Austria")],
+    #     # baseline_powers=[],
+    #     rounds=50,
+    #     rss_rollouts=2,
+    #     k_candidates=4,
+    #     action_rollouts=2,
+    # )
