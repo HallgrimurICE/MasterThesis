@@ -420,6 +420,12 @@ def run_standard_board_with_heuristic_agents(
     powers = sorted(state.powers, key=str)
     random_count = max(0, min(len(powers), round(len(powers) * random_ratio)))
     random_powers = set(powers[:random_count])
+    heuristic_powers = [power for power in powers if power not in random_powers]
+    random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
+    heuristic_power_list = ", ".join(str(power) for power in heuristic_powers)
+    print("\nAgent assignments:")
+    print(f"  Random agents ({len(random_powers)}): {random_power_list or '(none)'}")
+    print(f"  Heuristic agents ({len(heuristic_powers)}): {heuristic_power_list or '(none)'}")
     for power in powers:
         agent_seed = base_rng.randint(0, 2**32 - 1)
         if power in random_powers:
