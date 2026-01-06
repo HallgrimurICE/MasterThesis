@@ -475,6 +475,88 @@ def run_standard_board_with_heuristic_agents(
         interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_heuristic_experiment(
+    *,
+    rounds: int = 50,
+    games: int = 20,
+    seed: Optional[int] = None,
+    heuristic_powers: Optional[List[Power]] = None,
+    hold_probability: float = 0.2,
+    rollout_limit: int = 64,
+    rollout_depth: int = 1,
+    rollout_discount: float = 0.9,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+    base_profile_count: int = 8,
+) -> None:
+    """Run multiple games and average final supply centers per power."""
+
+    state = standard_initial_state()
+    powers = sorted(state.powers, key=str)
+    heuristic_set = set(heuristic_powers or [])
+    random_powers = {power for power in powers if power not in heuristic_set}
+
+    random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
+    heuristic_power_list = ", ".join(str(power) for power in sorted(heuristic_set, key=str))
+    print("\nExperiment agent assignments:")
+    print(f"  Random agents ({len(random_powers)}): {random_power_list or '(none)'}")
+    print(f"  Heuristic agents ({len(heuristic_set)}): {heuristic_power_list or '(none)'}")
+
+    totals: Dict[Power, int] = {power: 0 for power in powers}
+    base_rng = random.Random(seed)
+
+    for game_index in range(1, games + 1):
+        game_seed = base_rng.randint(0, 2**32 - 1)
+        game_rng = random.Random(game_seed)
+        game_state = standard_initial_state()
+
+        agents: Dict[Power, Agent] = {}
+        for power in powers:
+            agent_seed = game_rng.randint(0, 2**32 - 1)
+            if power in random_powers:
+                agents[power] = RandomAgent(
+                    power,
+                    hold_probability=hold_probability,
+                    rng=random.Random(agent_seed),
+                )
+            else:
+                policy = SampledBestResponsePolicy(
+                    rollout_limit=rollout_limit,
+                    rollout_depth=rollout_depth,
+                    rollout_discount=rollout_discount,
+                    rng=random.Random(agent_seed),
+                    unit_weight=unit_weight,
+                    supply_center_weight=supply_center_weight,
+                    threatened_penalty=threatened_penalty,
+                    base_profile_count=base_profile_count,
+                )
+                agents[power] = ObservationBestResponseAgent(power, policy=policy)
+
+        states, _, _ = run_rounds_with_agents(
+            game_state,
+            agents,
+            rounds,
+            title_prefix=f"Standard Board Game {game_index} Round {{round}}",
+            stop_on_winner=False,
+        )
+
+        final_state = states[-1]
+        center_counts: Dict[Power, int] = {}
+        for controller in final_state.supply_center_control.values():
+            if controller is None:
+                continue
+            center_counts[controller] = center_counts.get(controller, 0) + 1
+
+        for power in powers:
+            totals[power] += center_counts.get(power, 0)
+
+    print(f"\nAverage supply centers over {games} games:")
+    for power in powers:
+        average = totals[power] / float(games)
+        print(f"  {power}: {average:.2f}")
+
+
 def run_standard_board_with_deepmind_turkey(
     *,
     weights_path: str | Path,
@@ -972,6 +1054,7 @@ __all__ = [
     "run_standard_board_with_random_england",
     "run_standard_board_with_random_agents",
     "run_standard_board_with_heuristic_agents",
+    "run_standard_board_heuristic_experiment",
     "run_standard_board_with_deepmind_turkey",
     "run_triangle_board_with_random_agents",
     "run_standard_board_with_mixed_deepmind_and_random",
@@ -993,6 +1076,14 @@ if __name__ == "__main__":
         rollout_limit=32,
         base_profile_count=6,
         heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    )
+    run_standard_board_heuristic_experiment(
+        rounds=30,
+        games=20,
+        seed=7,
+        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+        rollout_limit=24,
+        base_profile_count=6,
     )
 
     # run_standard_board_with_mixed_deepmind_and_random(

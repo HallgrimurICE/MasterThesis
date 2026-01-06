@@ -22,6 +22,7 @@ from .agents import (
 )
 from .demo import (
     run_standard_board_with_deepmind_turkey,
+    run_standard_board_heuristic_experiment,
     run_standard_board_with_heuristic_agents,
     run_triangle_board_with_random_agents,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
     "run_standard_board_with_deepmind_turkey",
+    "run_standard_board_heuristic_experiment",
     "run_standard_board_with_heuristic_agents",
     "run_triangle_board_with_random_agents",
     "visualize_state",
