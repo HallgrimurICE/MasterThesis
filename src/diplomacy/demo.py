@@ -209,7 +209,7 @@ def _compute_simple_negotiation_deals(
     state: GameState,
     agents: Dict[Power, Agent],
     negotiation_powers: List[Power],
-) -> Tuple[Dict[Power, Set[Power]], List[Tuple[Power, Power]]]:
+) -> Tuple[Dict[Power, Dict[Power, str]], List[Tuple[Power, Power, str]]]:
     powers = sorted(state.powers, key=str)
     negotiators = [
         p for p in powers
@@ -228,7 +228,7 @@ def _compute_simple_negotiation_deals(
     baseline_state, _ = Adjudicator(state).resolve(_flatten_orders(baseline_orders))
     baseline_values = {p: simple_state_value(baseline_state, p) for p in negotiators}
 
-    proposals: Dict[Power, Set[Power]] = {p: set() for p in negotiators}
+    proposals: Dict[Power, Dict[Power, str]] = {p: {} for p in negotiators}
     for power in negotiators:
         for partner in negotiators:
             if partner == power:
@@ -241,14 +241,39 @@ def _compute_simple_negotiation_deals(
                 agents[partner], state, peace_partners=[power]
             )
             next_state, _ = Adjudicator(state).resolve(_flatten_orders(orders_map))
-            if simple_state_value(next_state, power) > baseline_values[power]:
-                proposals[power].add(partner)
+            peace_value = simple_state_value(next_state, power)
+            deal_type: str | None = None
 
-    agreements: List[Tuple[Power, Power]] = []
+            if isinstance(agents.get(power), SimpleNegotiatorAgent):
+                orders, support_score = agents[power].plan_orders_with_support(  # type: ignore[union-attr]
+                    state,
+                    partner,
+                    peace_partners=[partner],
+                )
+                orders_map[power] = orders
+                orders_map[partner] = _plan_orders_for_eval(
+                    agents[partner], state, peace_partners=[power]
+                )
+                support_state, _ = Adjudicator(state).resolve(_flatten_orders(orders_map))
+                support_value = simple_state_value(support_state, power)
+                if support_value > peace_value:
+                    deal_type = "support"
+                    peace_value = support_value
+
+            if deal_type is None and peace_value > baseline_values[power]:
+                deal_type = "peace"
+
+            if deal_type is not None:
+                proposals[power][partner] = deal_type
+
+    agreements: List[Tuple[Power, Power, str]] = []
     for idx, power in enumerate(negotiators):
         for partner in negotiators[idx + 1 :]:
-            if partner in proposals[power] and power in proposals[partner]:
-                agreements.append((power, partner))
+            deal_a = proposals.get(power, {}).get(partner)
+            deal_b = proposals.get(partner, {}).get(power)
+            if deal_a and deal_b:
+                deal_type = "support" if deal_a == "support" and deal_b == "support" else "peace"
+                agreements.append((power, partner, deal_type))
     return proposals, agreements
 
 
@@ -1013,26 +1038,35 @@ def run_standard_board_simple_negotiation(
         if proposals:
             print("  Proposals:")
             for power in sorted(negotiation_powers, key=str):
-                proposed = proposals.get(power, set())
-                targets = ", ".join(str(p) for p in sorted(proposed, key=str)) or "(none)"
+                proposed = proposals.get(power, {})
+                targets = ", ".join(
+                    f"{partner} ({deal})" for partner, deal in sorted(proposed.items(), key=lambda item: str(item[0]))
+                ) or "(none)"
                 print(f"    {power} -> {targets}")
         else:
             print("  No proposals this round.")
 
         active_peace: Dict[Power, Set[Power]] = {power: set() for power in negotiation_powers}
+        active_support: Dict[Power, Set[Power]] = {power: set() for power in negotiation_powers}
         if agreements:
             print("  Active deals:")
-            for power, partner in agreements:
+            for power, partner, deal_type in agreements:
                 active_peace[power].add(partner)
                 active_peace[partner].add(power)
-                print(f"    {power} <-> {partner} (peace)")
-                print(f"  Deal made: {power} and {partner} agree to peace this round.")
+                if deal_type == "support":
+                    active_support[power].add(partner)
+                    active_support[partner].add(power)
+                print(f"    {power} <-> {partner} ({deal_type})")
+                print(
+                    f"  Deal made: {power} and {partner} agree to {deal_type} this round."
+                )
         else:
             print("  No mutual deals this round.")
 
         for power, agent in agents.items():
             if isinstance(agent, SimpleNegotiatorAgent):
                 agent.set_peace_partners(active_peace.get(power, set()))
+                agent.set_support_partners(active_support.get(power, set()))
 
         round_orders: List[Order] = []
         for power, agent in agents.items():
@@ -1151,14 +1185,22 @@ def run_standard_board_simple_negotiation_experiment(
             del proposals
 
             active_peace: Dict[Power, Set[Power]] = {power: set() for power in negotiator_set}
-            for power, partner in agreements:
+            active_support: Dict[Power, Set[Power]] = {power: set() for power in negotiator_set}
+            for power, partner, deal_type in agreements:
                 active_peace[power].add(partner)
                 active_peace[partner].add(power)
-                print(f"[Game {game_index}][Round {movement_round}] Deal made: {power} and {partner} agree to peace.")
+                if deal_type == "support":
+                    active_support[power].add(partner)
+                    active_support[partner].add(power)
+                print(
+                    f"[Game {game_index}][Round {movement_round}] "
+                    f"Deal made: {power} and {partner} agree to {deal_type}."
+                )
 
             for power, agent in agents.items():
                 if isinstance(agent, SimpleNegotiatorAgent):
                     agent.set_peace_partners(active_peace.get(power, set()))
+                    agent.set_support_partners(active_support.get(power, set()))
 
             round_orders: List[Order] = []
             for power, agent in agents.items():

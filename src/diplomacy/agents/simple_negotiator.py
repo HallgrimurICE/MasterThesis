@@ -28,6 +28,18 @@ def _is_attack_on(order: Order, target_power: Power, state: GameState) -> bool:
     return False
 
 
+def _is_supporting_partner(order: Order, partner: Power, state: GameState) -> bool:
+    if order.type != OrderType.SUPPORT:
+        return False
+    if order.support_target:
+        unit = state.units.get(order.support_target)
+        return unit is not None and unit.power == partner
+    if order.support_unit_loc:
+        unit = state.units.get(order.support_unit_loc)
+        return unit is not None and unit.power == partner
+    return False
+
+
 def _restrict_candidate_map(
     state: GameState,
     candidate_map: "OrderedDict[str, List[Order]]",
@@ -46,6 +58,34 @@ def _restrict_candidate_map(
     return restricted
 
 
+def _support_candidate_maps(
+    state: GameState,
+    candidate_map: "OrderedDict[str, List[Order]]",
+    partner: Power,
+) -> List["OrderedDict[str, List[Order]]"]:
+    supporting_units = []
+    for loc, orders in candidate_map.items():
+        if any(_is_supporting_partner(order, partner, state) for order in orders):
+            supporting_units.append(loc)
+
+    if not supporting_units:
+        return []
+
+    variants: List["OrderedDict[str, List[Order]]"] = []
+    for loc in supporting_units:
+        restricted = OrderedDict()
+        for unit_loc, orders in candidate_map.items():
+            if unit_loc == loc:
+                support_orders = [
+                    order for order in orders if _is_supporting_partner(order, partner, state)
+                ]
+                restricted[unit_loc] = support_orders or list(orders)
+            else:
+                restricted[unit_loc] = list(orders)
+        variants.append(restricted)
+    return variants
+
+
 class SimpleNegotiatorAgent(Agent):
     """Negotiator that uses a lightweight order policy and peace filtering."""
 
@@ -59,9 +99,13 @@ class SimpleNegotiatorAgent(Agent):
         super().__init__(power)
         self._policy = policy or SampledBestResponsePolicy(rng=random.Random(rng_seed))
         self._peace_partners: Set[Power] = set()
+        self._support_partners: Set[Power] = set()
 
     def set_peace_partners(self, partners: Iterable[Power]) -> None:
         self._peace_partners = set(partners)
+
+    def set_support_partners(self, partners: Iterable[Power]) -> None:
+        self._support_partners = set(partners)
 
     def plan_orders_with_peace(
         self,
@@ -77,9 +121,58 @@ class SimpleNegotiatorAgent(Agent):
         )
         return list(best_orders)
 
+    def plan_orders_with_support(
+        self,
+        state: GameState,
+        partner: Power,
+        *,
+        peace_partners: Iterable[Power] = (),
+    ) -> Tuple[List[Order], float]:
+        candidate_map = self._policy._build_candidate_order_map(state, self.power)  # type: ignore[attr-defined]
+        restricted = _restrict_candidate_map(state, candidate_map, set(peace_partners))
+        variants = _support_candidate_maps(state, restricted, partner)
+        if not variants:
+            orders, score = self._policy._select_best_orders(  # type: ignore[attr-defined]
+                state,
+                self.power,
+                restricted,
+            )
+            return list(orders), score
+
+        best_orders: List[Order] = []
+        best_score = float("-inf")
+        for variant in variants:
+            orders, score = self._policy._select_best_orders(  # type: ignore[attr-defined]
+                state,
+                self.power,
+                variant,
+            )
+            if score > best_score:
+                best_score = score
+                best_orders = list(orders)
+        return best_orders, best_score
+
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
         del round_index
-        return self.plan_orders_with_peace(state, self._peace_partners)
+        if not self._support_partners:
+            return self.plan_orders_with_peace(state, self._peace_partners)
+
+        peace_partners = set(self._peace_partners) | set(self._support_partners)
+        best_orders: List[Order] = []
+        best_score = float("-inf")
+        for partner in sorted(self._support_partners, key=str):
+            orders, score = self.plan_orders_with_support(
+                state,
+                partner,
+                peace_partners=peace_partners,
+            )
+            if score > best_score:
+                best_score = score
+                best_orders = orders
+
+        if best_orders:
+            return best_orders
+        return self.plan_orders_with_peace(state, peace_partners)
 
     def plan_builds(
         self,
