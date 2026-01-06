@@ -408,15 +408,27 @@ def run_standard_board_with_heuristic_agents(
     supply_center_weight: float = 5.0,
     threatened_penalty: float = 2.0,
     base_profile_count: int = 8,
+    random_ratio: float = 0.5,
+    hold_probability: float = 0.2,
 ) -> None:
-    """Run the standard board with heuristic best-response agents for every power."""
+    """Run the standard board with heuristic best-response and random agents."""
 
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
     agents: Dict[Power, Agent] = {}
-    for power in sorted(state.powers, key=str):
+    powers = sorted(state.powers, key=str)
+    random_count = max(0, min(len(powers), round(len(powers) * random_ratio)))
+    random_powers = set(powers[:random_count])
+    for power in powers:
         agent_seed = base_rng.randint(0, 2**32 - 1)
+        if power in random_powers:
+            agents[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
+            )
+            continue
         policy = SampledBestResponsePolicy(
             rollout_limit=rollout_limit,
             rollout_depth=rollout_depth,
@@ -969,6 +981,7 @@ if __name__ == "__main__":
         rollout_depth=1,
         rollout_limit=32,
         base_profile_count=6,
+        random_ratio=0.5,
     )
 
     # run_standard_board_with_mixed_deepmind_and_random(
