@@ -1026,6 +1026,7 @@ def run_standard_board_simple_negotiation(
                 active_peace[power].add(partner)
                 active_peace[partner].add(power)
                 print(f"    {power} <-> {partner} (peace)")
+                print(f"  Deal made: {power} and {partner} agree to peace this round.")
         else:
             print("  No mutual deals this round.")
 
@@ -1153,6 +1154,7 @@ def run_standard_board_simple_negotiation_experiment(
             for power, partner in agreements:
                 active_peace[power].add(partner)
                 active_peace[partner].add(power)
+                print(f"[Game {game_index}][Round {movement_round}] Deal made: {power} and {partner} agree to peace.")
 
             for power, agent in agents.items():
                 if isinstance(agent, SimpleNegotiatorAgent):
