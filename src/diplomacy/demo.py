@@ -12,6 +12,7 @@ from .agents import (
     RandomAgent,
     SampledBestResponsePolicy,
     SaveBestResponseAgent,
+    SimpleNegotiatorAgent,
 )
 from .maps import (
     standard_initial_state,
@@ -25,7 +26,7 @@ from .agents.sl_agent import DeepMindSlAgent, DeepMindSaveAgent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
 from .orders import hold, move, support_hold, support_move
-from .value_estimation import sl_state_value
+from .value_estimation import sl_state_value, simple_state_value
 from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, UnitType, describe_order
@@ -184,6 +185,96 @@ def _compute_negotiation_deals(
         proposals=proposals,
     )
     return proposals, contracts
+
+
+def _flatten_orders(orders_by_power: Dict[Power, Iterable[Order]]) -> List[Order]:
+    combined: List[Order] = []
+    for orders in orders_by_power.values():
+        combined.extend(list(orders))
+    return combined
+
+
+def _plan_orders_for_eval(
+    agent: Agent,
+    state: GameState,
+    *,
+    peace_partners: Iterable[Power] = (),
+) -> List[Order]:
+    if isinstance(agent, SimpleNegotiatorAgent):
+        return agent.plan_orders_with_peace(state, peace_partners)
+    return agent._plan_orders(state, 0)
+
+
+def _compute_simple_negotiation_deals(
+    state: GameState,
+    agents: Dict[Power, Agent],
+    negotiation_powers: List[Power],
+) -> Tuple[Dict[Power, Dict[Power, str]], List[Tuple[Power, Power, str]]]:
+    powers = sorted(state.powers, key=str)
+    negotiators = [
+        p for p in powers
+        if p in negotiation_powers and isinstance(agents.get(p), SimpleNegotiatorAgent)
+    ]
+    if not negotiators:
+        return {}, []
+
+    baseline_orders: Dict[Power, List[Order]] = {}
+    for power in powers:
+        agent = agents.get(power)
+        if agent is None:
+            continue
+        baseline_orders[power] = _plan_orders_for_eval(agent, state)
+
+    baseline_state, _ = Adjudicator(state).resolve(_flatten_orders(baseline_orders))
+    baseline_values = {p: simple_state_value(baseline_state, p) for p in negotiators}
+
+    proposals: Dict[Power, Dict[Power, str]] = {p: {} for p in negotiators}
+    for power in negotiators:
+        for partner in negotiators:
+            if partner == power:
+                continue
+            orders_map = dict(baseline_orders)
+            orders_map[power] = _plan_orders_for_eval(
+                agents[power], state, peace_partners=[partner]
+            )
+            orders_map[partner] = _plan_orders_for_eval(
+                agents[partner], state, peace_partners=[power]
+            )
+            next_state, _ = Adjudicator(state).resolve(_flatten_orders(orders_map))
+            peace_value = simple_state_value(next_state, power)
+            deal_type: str | None = None
+
+            if isinstance(agents.get(power), SimpleNegotiatorAgent):
+                orders, support_score = agents[power].plan_orders_with_support(  # type: ignore[union-attr]
+                    state,
+                    partner,
+                    peace_partners=[partner],
+                )
+                orders_map[power] = orders
+                orders_map[partner] = _plan_orders_for_eval(
+                    agents[partner], state, peace_partners=[power]
+                )
+                support_state, _ = Adjudicator(state).resolve(_flatten_orders(orders_map))
+                support_value = simple_state_value(support_state, power)
+                if support_value > peace_value:
+                    deal_type = "support"
+                    peace_value = support_value
+
+            if deal_type is None and peace_value > baseline_values[power]:
+                deal_type = "peace"
+
+            if deal_type is not None:
+                proposals[power][partner] = deal_type
+
+    agreements: List[Tuple[Power, Power, str]] = []
+    for idx, power in enumerate(negotiators):
+        for partner in negotiators[idx + 1 :]:
+            deal_a = proposals.get(power, {}).get(partner)
+            deal_b = proposals.get(partner, {}).get(power)
+            if deal_a and deal_b:
+                deal_type = "support" if deal_a == "support" and deal_b == "support" else "peace"
+                agreements.append((power, partner, deal_type))
+    return proposals, agreements
 
 
 def print_standard_board_demo() -> None:
@@ -847,6 +938,296 @@ def run_standard_board_br_vs_neg(
         interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_simple_negotiation(
+    *,
+    rounds: int = 20,
+    seed: Optional[int] = 42,
+    hold_probability: float = 0.2,
+    rollout_limit: int = 64,
+    negotiation_powers: Optional[List[Power]] = None,
+    baseline_powers: Optional[List[Power]] = None,
+    stop_on_winner: bool = True,
+    visualize: bool = False,
+) -> None:
+    """Demo with simple negotiation agents that avoid DeepMind tooling."""
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+
+    negotiation_powers = negotiation_powers or sorted(state.powers, key=str)
+    baseline_powers = baseline_powers or []
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        if power in negotiation_powers:
+            agents[power] = SimpleNegotiatorAgent(
+                power=power,
+                rng_seed=agent_seed,
+                policy=SampledBestResponsePolicy(
+                    rollout_limit=rollout_limit,
+                    rng=random.Random(agent_seed),
+                ),
+            )
+        elif power in baseline_powers:
+            agents[power] = ObservationBestResponseAgent(
+                power=power,
+                policy=SampledBestResponsePolicy(
+                    rollout_limit=rollout_limit,
+                    rng=random.Random(agent_seed),
+                ),
+            )
+        else:
+            agents[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
+            )
+
+    print("\n[simple_neg] Agent roster:")
+    for power in sorted(state.powers, key=str):
+        agent = agents.get(power)
+        print(f"  {power}: {agent.__class__.__name__}")
+    print(f"[simple_neg] Config: rounds={rounds}, rollout_limit={rollout_limit}")
+
+    def collect_build_choices(build_state: GameState) -> Dict[Power, List[Tuple[str, UnitType]]]:
+        selections: Dict[Power, List[Tuple[str, UnitType]]] = {}
+        for build_power, count in build_state.pending_builds.items():
+            if count <= 0:
+                continue
+            agent = agents.get(build_power)
+            if agent is None:
+                continue
+            choices = agent.plan_builds(build_state, count)
+            if choices:
+                selections[build_power] = choices
+        return selections
+
+    movement_round = 0
+    states: List[GameState] = [state]
+    titles: List[str] = ["Initial State"]
+    orders_history: List[List[Order]] = []
+
+    while movement_round < rounds and (not stop_on_winner or state.winner is None):
+        if state.phase.name.endswith("RETREAT"):
+            print(f"[Round {movement_round}] (Retreat phase)")
+            retreat_orders: List[Order] = []
+            for power, agent in agents.items():
+                if not any(u.power == power for u in state.pending_retreats.values()):
+                    continue
+                retreat_orders.extend(agent.issue_orders(state))
+            state, resolution = Adjudicator(state).resolve(
+                retreat_orders,
+                build_callback=collect_build_choices,
+            )
+            states.append(state)
+            titles.append(f"Round {movement_round} (Retreat)")
+            orders_history.append(retreat_orders)
+            if stop_on_winner and resolution.winner is not None:
+                break
+            continue
+
+        movement_round += 1
+        print(f"\n[Round {movement_round}] Phase={state.phase.name}")
+
+        proposals, agreements = _compute_simple_negotiation_deals(
+            state=state,
+            agents=agents,
+            negotiation_powers=negotiation_powers,
+        )
+        if proposals:
+            print("  Proposals:")
+            for power in sorted(negotiation_powers, key=str):
+                proposed = proposals.get(power, {})
+                targets = ", ".join(
+                    f"{partner} ({deal})" for partner, deal in sorted(proposed.items(), key=lambda item: str(item[0]))
+                ) or "(none)"
+                print(f"    {power} -> {targets}")
+        else:
+            print("  No proposals this round.")
+
+        active_peace: Dict[Power, Set[Power]] = {power: set() for power in negotiation_powers}
+        active_support: Dict[Power, Set[Power]] = {power: set() for power in negotiation_powers}
+        if agreements:
+            print("  Active deals:")
+            for power, partner, deal_type in agreements:
+                active_peace[power].add(partner)
+                active_peace[partner].add(power)
+                if deal_type == "support":
+                    active_support[power].add(partner)
+                    active_support[partner].add(power)
+                print(f"    {power} <-> {partner} ({deal_type})")
+                print(
+                    f"  Deal made: {power} and {partner} agree to {deal_type} this round."
+                )
+        else:
+            print("  No mutual deals this round.")
+
+        for power, agent in agents.items():
+            if isinstance(agent, SimpleNegotiatorAgent):
+                agent.set_peace_partners(active_peace.get(power, set()))
+                agent.set_support_partners(active_support.get(power, set()))
+
+        round_orders: List[Order] = []
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent_orders = agent.issue_orders(state)
+            round_orders.extend(agent_orders)
+
+        orders_history.append(list(round_orders))
+        print("  Orders:")
+        for line in _format_orders_with_actions(round_orders):
+            print(line)
+
+        state, resolution = Adjudicator(state).resolve(
+            round_orders,
+            build_callback=collect_build_choices,
+        )
+        states.append(state)
+        titles.append(f"Round {movement_round}")
+        print(
+            f"  Resolution: winner={resolution.winner}, "
+            f"auto_disbands={bool(resolution.auto_disbands)}, "
+            f"auto_builds={bool(resolution.auto_builds)}"
+        )
+        if stop_on_winner and resolution.winner is not None:
+            print(f"  Winner detected: {resolution.winner}")
+            break
+
+    final_state = states[-1]
+    winner = final_state.winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
+def run_standard_board_simple_negotiation_experiment(
+    *,
+    rounds: int = 50,
+    games: int = 20,
+    seed: Optional[int] = None,
+    negotiator_powers: Optional[List[Power]] = None,
+    rollout_limit: int = 64,
+    rollout_depth: int = 1,
+    rollout_discount: float = 0.9,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+    base_profile_count: int = 8,
+) -> None:
+    """Run multiple games comparing simple negotiators vs heuristic agents."""
+
+    base_state = standard_initial_state()
+    powers = sorted(base_state.powers, key=str)
+    negotiator_set = set(negotiator_powers or [])
+    heuristic_powers = [power for power in powers if power not in negotiator_set]
+
+    negotiator_power_list = ", ".join(str(power) for power in sorted(negotiator_set, key=str))
+    heuristic_power_list = ", ".join(str(power) for power in heuristic_powers)
+    print("\nExperiment agent assignments:")
+    print(f"  Simple negotiators ({len(negotiator_set)}): {negotiator_power_list or '(none)'}")
+    print(f"  Heuristic agents ({len(heuristic_powers)}): {heuristic_power_list or '(none)'}")
+
+    totals: Dict[Power, int] = {power: 0 for power in powers}
+    base_rng = random.Random(seed)
+
+    for game_index in range(1, games + 1):
+        game_seed = base_rng.randint(0, 2**32 - 1)
+        game_rng = random.Random(game_seed)
+        state = standard_initial_state()
+
+        agents: Dict[Power, Agent] = {}
+        for power in powers:
+            agent_seed = game_rng.randint(0, 2**32 - 1)
+            policy = SampledBestResponsePolicy(
+                rollout_limit=rollout_limit,
+                rollout_depth=rollout_depth,
+                rollout_discount=rollout_discount,
+                rng=random.Random(agent_seed),
+                unit_weight=unit_weight,
+                supply_center_weight=supply_center_weight,
+                threatened_penalty=threatened_penalty,
+                base_profile_count=base_profile_count,
+            )
+            if power in negotiator_set:
+                agents[power] = SimpleNegotiatorAgent(
+                    power=power,
+                    rng_seed=agent_seed,
+                    policy=policy,
+                )
+            else:
+                agents[power] = ObservationBestResponseAgent(power, policy=policy)
+
+        movement_round = 0
+        while movement_round < rounds and state.winner is None:
+            if state.phase.name.endswith("RETREAT"):
+                retreat_orders: List[Order] = []
+                for power, agent in agents.items():
+                    if not any(u.power == power for u in state.pending_retreats.values()):
+                        continue
+                    retreat_orders.extend(agent.issue_orders(state))
+                state, resolution = Adjudicator(state).resolve(retreat_orders)
+                if resolution.winner is not None:
+                    break
+                continue
+
+            movement_round += 1
+            proposals, agreements = _compute_simple_negotiation_deals(
+                state=state,
+                agents=agents,
+                negotiation_powers=list(negotiator_set),
+            )
+            del proposals
+
+            active_peace: Dict[Power, Set[Power]] = {power: set() for power in negotiator_set}
+            active_support: Dict[Power, Set[Power]] = {power: set() for power in negotiator_set}
+            for power, partner, deal_type in agreements:
+                active_peace[power].add(partner)
+                active_peace[partner].add(power)
+                if deal_type == "support":
+                    active_support[power].add(partner)
+                    active_support[partner].add(power)
+                print(
+                    f"[Game {game_index}][Round {movement_round}] "
+                    f"Deal made: {power} and {partner} agree to {deal_type}."
+                )
+
+            for power, agent in agents.items():
+                if isinstance(agent, SimpleNegotiatorAgent):
+                    agent.set_peace_partners(active_peace.get(power, set()))
+                    agent.set_support_partners(active_support.get(power, set()))
+
+            round_orders: List[Order] = []
+            for power, agent in agents.items():
+                if power not in state.powers:
+                    continue
+                round_orders.extend(agent.issue_orders(state))
+
+            state, resolution = Adjudicator(state).resolve(round_orders)
+            if resolution.winner is not None:
+                break
+
+        final_state = state
+        center_counts: Dict[Power, int] = {}
+        for controller in final_state.supply_center_control.values():
+            if controller is None:
+                continue
+            center_counts[controller] = center_counts.get(controller, 0) + 1
+
+        for power in powers:
+            totals[power] += center_counts.get(power, 0)
+
+    print(f"\nAverage supply centers over {games} games:")
+    for power in powers:
+        average = totals[power] / float(games)
+        print(f"  {power}: {average:.2f}")
+
+
 def run_standard_board_with_mixed_deepmind_and_random(
     *,
     weights_path: str | Path,
@@ -1055,6 +1436,8 @@ __all__ = [
     "run_standard_board_with_random_agents",
     "run_standard_board_with_heuristic_agents",
     "run_standard_board_heuristic_experiment",
+    "run_standard_board_simple_negotiation",
+    "run_standard_board_simple_negotiation_experiment",
     "run_standard_board_with_deepmind_turkey",
     "run_triangle_board_with_random_agents",
     "run_standard_board_with_mixed_deepmind_and_random",
@@ -1066,25 +1449,33 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    run_triangle_board_with_random_agents(rounds=10, visualize=False)
-
-    run_standard_board_with_heuristic_agents(
-        rounds=50,
-        visualize=False,
-        seed=42,
-        rollout_depth=1,
-        rollout_limit=32,
-        base_profile_count=6,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
-    )
-    run_standard_board_heuristic_experiment(
+    run_standard_board_simple_negotiation_experiment(
         rounds=30,
-        games=20,
+        games=10,
         seed=7,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+        negotiator_powers=[Power("Russia"), Power("Turkey")],
         rollout_limit=24,
         base_profile_count=6,
     )
+
+    # run_triangle_board_with_random_agents(rounds=10, visualize=False)
+    # run_standard_board_with_heuristic_agents(
+    #     rounds=50,
+    #     visualize=False,
+    #     seed=42,
+    #     rollout_depth=1,
+    #     rollout_limit=32,
+    #     base_profile_count=6,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    # )
+    # run_standard_board_heuristic_experiment(
+    #     rounds=30,
+    #     games=20,
+    #     seed=7,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    #     rollout_limit=24,
+    #     base_profile_count=6,
+    # )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,

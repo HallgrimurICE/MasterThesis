@@ -57,6 +57,26 @@ def sl_state_value(
     except (ValueError, IndexError, TypeError):
         return 0.0
 
+
+def simple_state_value(
+    state: GameState,
+    power: Power,
+    *,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+) -> float:
+    threatened = float(state.centers_threatened(power))
+    sc_control = float(
+        sum(1 for controller in state.supply_center_control.values() if controller == power)
+    )
+    unit_presence = float(sum(1 for unit in state.units.values() if unit.power == power))
+    return (
+        unit_weight * unit_presence
+        + supply_center_weight * sc_control
+        - threatened_penalty * threatened
+    )
+
 def _copy_state(state: GameState) -> GameState:
     # Replace with your preferred cloning method if different.
     return state.copy()
