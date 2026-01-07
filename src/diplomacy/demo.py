@@ -1453,7 +1453,7 @@ if __name__ == "__main__":
         rounds=30,
         games=10,
         seed=7,
-        negotiator_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+        negotiator_powers=[Power("Russia"), Power("Turkey")],
         rollout_limit=24,
         base_profile_count=6,
     )
