@@ -1068,25 +1068,67 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    run_triangle_board_with_random_agents(rounds=10, visualize=False)
-
-    run_standard_board_with_heuristic_agents(
-        rounds=50,
-        visualize=False,
-        seed=42,
-        rollout_depth=1,
-        rollout_limit=32,
-        base_profile_count=6,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
-    )
-    run_standard_board_heuristic_experiment(
-        rounds=30,
-        games=20,
-        seed=7,
-        heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
-        rollout_limit=24,
-        base_profile_count=6,
-    )
+    # run_triangle_board_with_random_agents(rounds=10, visualize=False)
+    #
+    # run_standard_board_with_heuristic_agents(
+    #     rounds=50,
+    #     visualize=False,
+    #     seed=42,
+    #     rollout_depth=1,
+    #     rollout_limit=32,
+    #     base_profile_count=6,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    # )
+    # run_standard_board_heuristic_experiment(
+    #     rounds=30,
+    #     games=20,
+    #     seed=7,
+    #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    #     rollout_limit=24,
+    #     base_profile_count=6,
+    # )
+    #
+    # Two ToM0 negotiators vs one ToM1 negotiator (others random).
+    # Requires sl_params.npz weights.
+    # weights_path = "data/fppi2_params.npz"
+    # state = standard_initial_state()
+    # base_rng = random.Random(42)
+    # agents: Dict[Power, Agent] = {}
+    # for power in sorted(state.powers, key=str):
+    #     agent_seed = base_rng.randint(0, 2**32 - 1)
+    #     if power == Power("Turkey"):
+    #         agents[power] = DeepMindNegotiatorAgent(
+    #             power=power,
+    #             sl_params_path=weights_path,
+    #             rng_seed=agent_seed,
+    #             k_candidates=1,
+    #             action_rollouts=1,
+    #             rss_rollouts=1,
+    #             tom_depth=1,
+    #         )
+    #     elif power in {Power("France"), Power("Russia")}:
+    #         agents[power] = DeepMindNegotiatorAgent(
+    #             power=power,
+    #             sl_params_path=weights_path,
+    #             rng_seed=agent_seed,
+    #             k_candidates=1,
+    #             action_rollouts=1,
+    #             rss_rollouts=1,
+    #             tom_depth=0,
+    #         )
+    #     else:
+    #         agents[power] = RandomAgent(
+    #             power,
+    #             hold_probability=0.2,
+    #             rng=random.Random(agent_seed),
+    #         )
+    # run_rounds_with_agents(
+    #     state,
+    #     agents,
+    #     rounds=5,
+    #     title_prefix="Standard Board After Round {round}",
+    #     stop_on_winner=True,
+    # )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
