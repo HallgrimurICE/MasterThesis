@@ -849,6 +849,185 @@ def run_standard_board_br_vs_neg(
         interactive_visualize_state_mesh(states, titles)
 
 
+def run_standard_board_mixed_tom_demo(
+    *,
+    weights_path: str | Path,
+    rounds: int = 5,
+    seed: Optional[int] = 42,
+    hold_probability: float = 0.2,
+    temperature: float = 0.1,
+    k_candidates: int = 1,
+    action_rollouts: int = 1,
+    rss_rollouts: int = 1,
+    negotiation_powers: Optional[List[Power]] = None,
+    tom_depths: Optional[Dict[Power, int]] = None,
+    default_tom_depth: int = 1,
+    stop_on_winner: bool = True,
+    visualize: bool = False,
+) -> None:
+    """Demo with negotiators using per-power ToM depths plus random agents."""
+
+    if DeepMindNegotiatorAgent is None:
+        raise ImportError("DeepMindNegotiatorAgent not available; implement it in agents/sl_agent.py.")
+
+    weights_path = Path(weights_path)
+    if not weights_path.is_file():
+        raise FileNotFoundError(
+            "Could not find supervised-learning parameters at "
+            f"{weights_path}. Download DeepMind's sl_params.npz "
+            "and pass its full path via the weights_path argument."
+        )
+
+    state = standard_initial_state()
+    base_rng = random.Random(seed)
+    negotiation_powers = negotiation_powers or []
+    tom_depths = tom_depths or {}
+
+    agents: Dict[Power, Agent] = {}
+    for power in sorted(state.powers, key=str):
+        agent_seed = base_rng.randint(0, 2**32 - 1)
+        if power in negotiation_powers:
+            agents[power] = DeepMindNegotiatorAgent(
+                power=power,
+                sl_params_path=str(weights_path),
+                rng_seed=agent_seed,
+                temperature=temperature,
+                k_candidates=k_candidates,
+                action_rollouts=action_rollouts,
+                rss_rollouts=rss_rollouts,
+                tom_depth=tom_depths.get(power, default_tom_depth),
+            )
+        else:
+            agents[power] = RandomAgent(
+                power,
+                hold_probability=hold_probability,
+                rng=random.Random(agent_seed),
+            )
+
+    print("\n[mixed_tom] Agent roster:")
+    for power in sorted(state.powers, key=str):
+        agent = agents.get(power)
+        if power in negotiation_powers:
+            depth = tom_depths.get(power, default_tom_depth)
+            print(f"  {power}: {agent.__class__.__name__} (tom_depth={depth})")
+        else:
+            print(f"  {power}: {agent.__class__.__name__}")
+    print(
+        "[mixed_tom] Config: rounds={rounds}, k={k_candidates}, "
+        "n_rollouts={action_rollouts}, rss_rollouts={rss_rollouts}".format(
+            rounds=rounds,
+            k_candidates=k_candidates,
+            action_rollouts=action_rollouts,
+            rss_rollouts=rss_rollouts,
+        )
+    )
+
+    def collect_build_choices(build_state: GameState) -> Dict[Power, List[Tuple[str, UnitType]]]:
+        selections: Dict[Power, List[Tuple[str, UnitType]]] = {}
+        for build_power, count in build_state.pending_builds.items():
+            if count <= 0:
+                continue
+            agent = agents.get(build_power)
+            if agent is None:
+                continue
+            choices = agent.plan_builds(build_state, count)
+            if choices:
+                selections[build_power] = choices
+        return selections
+
+    movement_round = 0
+    states: List[GameState] = [state]
+    titles: List[str] = ["Initial State"]
+    orders_history: List[List[Order]] = []
+
+    while movement_round < rounds and (not stop_on_winner or state.winner is None):
+        if state.phase.name.endswith("RETREAT"):
+            print(f"[Round {movement_round}] (Retreat phase)")
+            retreat_orders: List[Order] = []
+            for power, agent in agents.items():
+                if not any(u.power == power for u in state.pending_retreats.values()):
+                    continue
+                retreat_orders.extend(agent.issue_orders(state))
+            state, resolution = Adjudicator(state).resolve(
+                retreat_orders,
+                build_callback=collect_build_choices,
+            )
+            states.append(state)
+            titles.append(f"Round {movement_round} (Retreat)")
+            orders_history.append(retreat_orders)
+            if stop_on_winner and resolution.winner is not None:
+                break
+            continue
+
+        movement_round += 1
+        print(f"\n[Round {movement_round}] Phase={state.phase.name}")
+
+        proposals, contracts = _compute_negotiation_deals(
+            state=state,
+            agents=agents,
+            negotiation_powers=negotiation_powers,
+            rss_rollouts=rss_rollouts,
+        )
+        if proposals:
+            print("  Proposals:")
+            for power in sorted(negotiation_powers, key=str):
+                proposed = proposals.get(power, set())
+                targets = ", ".join(str(p) for p in sorted(proposed, key=str)) or "(none)"
+                print(f"    {power} -> {targets}")
+        else:
+            print("  No proposals this round (missing negotiators or policies).")
+
+        if contracts:
+            print("  Active deals:")
+            for contract in contracts:
+                allowed_i = sorted(int(a) for a in contract.allowed_i)
+                allowed_j = sorted(int(a) for a in contract.allowed_j)
+                print(
+                    f"    {contract.player_i} <-> {contract.player_j} | "
+                    f"{len(allowed_i)} actions for {contract.player_i}, "
+                    f"{len(allowed_j)} actions for {contract.player_j}"
+                )
+        else:
+            print("  No mutual deals this round.")
+
+        round_orders: List[Order] = []
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent_orders = agent.issue_orders(state)
+            round_orders.extend(agent_orders)
+
+        orders_history.append(list(round_orders))
+        print("  Orders:")
+        for line in _format_orders_with_actions(round_orders):
+            print(line)
+
+        state, resolution = Adjudicator(state).resolve(
+            round_orders,
+            build_callback=collect_build_choices,
+        )
+        states.append(state)
+        titles.append(f"Round {movement_round}")
+        print(
+            f"  Resolution: winner={resolution.winner}, "
+            f"auto_disbands={bool(resolution.auto_disbands)}, "
+            f"auto_builds={bool(resolution.auto_builds)}"
+        )
+        if stop_on_winner and resolution.winner is not None:
+            print(f"  Winner detected: {resolution.winner}")
+            break
+
+    final_state = states[-1]
+    winner = final_state.winner
+    if winner is not None:
+        print(f"\nWinner detected: {winner} controls a majority of supply centers.")
+    elif stop_on_winner:
+        print("\nNo winner within the configured round limit.")
+
+    if visualize:
+        interactive_visualize_state_mesh(states, titles)
+
+
 def run_standard_board_with_mixed_deepmind_and_random(
     *,
     weights_path: str | Path,
@@ -1060,6 +1239,7 @@ __all__ = [
     "run_standard_board_with_deepmind_turkey",
     "run_triangle_board_with_random_agents",
     "run_standard_board_with_mixed_deepmind_and_random",
+    "run_standard_board_mixed_tom_demo",
     "demo_run_mesh_with_random_orders",
     "demo_run_mesh_with_random_agents",
     "deepmind_single_move_latency",
@@ -1090,44 +1270,18 @@ if __name__ == "__main__":
     #
     # Two ToM0 negotiators vs one ToM1 negotiator (others random).
     # Requires sl_params.npz weights.
-    weights_path = "data/fppi2_params.npz"
-    state = standard_initial_state()
-    base_rng = random.Random(42)
-    agents: Dict[Power, Agent] = {}
-    for power in sorted(state.powers, key=str):
-        agent_seed = base_rng.randint(0, 2**32 - 1)
-        if power == Power("Turkey"):
-            agents[power] = DeepMindNegotiatorAgent(
-                power=power,
-                sl_params_path=weights_path,
-                rng_seed=agent_seed,
-                k_candidates=1,
-                action_rollouts=1,
-                rss_rollouts=1,
-                tom_depth=1,
-            )
-        elif power in {Power("France"), Power("Russia")}:
-            agents[power] = DeepMindNegotiatorAgent(
-                power=power,
-                sl_params_path=weights_path,
-                rng_seed=agent_seed,
-                k_candidates=1,
-                action_rollouts=1,
-                rss_rollouts=1,
-                tom_depth=0,
-            )
-        else:
-            agents[power] = RandomAgent(
-                power,
-                hold_probability=0.2,
-                rng=random.Random(agent_seed),
-            )
-    run_rounds_with_agents(
-        state,
-        agents,
+    run_standard_board_mixed_tom_demo(
+        weights_path="data/fppi2_params.npz",
         rounds=5,
-        title_prefix="Standard Board After Round {round}",
-        stop_on_winner=True,
+        rss_rollouts=1,
+        k_candidates=1,
+        action_rollouts=1,
+        negotiation_powers=[Power("Turkey"), Power("France"), Power("Russia")],
+        tom_depths={
+            Power("Turkey"): 1,
+            Power("France"): 0,
+            Power("Russia"): 0,
+        },
     )
 
     # run_standard_board_with_mixed_deepmind_and_random(
