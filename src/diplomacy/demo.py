@@ -1114,4 +1114,23 @@ if __name__ == "__main__":
     #     rss_rollouts=2,
     #     k_candidates=4,
     #     action_rollouts=2,
+    #     tom_depth=2,
+    # )
+    # run_standard_board_br_vs_neg(
+    #     weights_path="data/fppi2_params.npz",
+    #     negotiation_powers=[Power("Turkey")],
+    #     rounds=5,
+    #     rss_rollouts=1,
+    #     k_candidates=1,
+    #     action_rollouts=1,
+    #     tom_depth=0,
+    # )
+    # run_standard_board_br_vs_neg(
+    #     weights_path="data/fppi2_params.npz",
+    #     negotiation_powers=[Power("Turkey")],
+    #     rounds=5,
+    #     rss_rollouts=1,
+    #     k_candidates=1,
+    #     action_rollouts=1,
+    #     tom_depth=1,
     # )
