@@ -682,6 +682,7 @@ def run_standard_board_br_vs_neg(
     k_candidates: int = 2,
     action_rollouts: int = 2,
     rss_rollouts: int = 4,
+    tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
     stop_on_winner: bool = True,
@@ -718,6 +719,7 @@ def run_standard_board_br_vs_neg(
                 k_candidates=k_candidates,
                 action_rollouts=action_rollouts,
                 rss_rollouts=rss_rollouts,
+                tom_depth=tom_depth,
             )
         elif power in baseline_powers:
             agents[power] = DeepMindSaveAgent(

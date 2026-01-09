@@ -27,8 +27,9 @@ def run_rss_for_power(
 ) -> Set[Power]:
     """Return the set of powers to whom ``power`` proposes Peace.
 
-    tom_depth=1 uses only the focal power's improvement. tom_depth>=2 also
-    requires the counterpart's expected value to improve under the deal.
+    tom_depth=0 proposes peace with everyone (no value reasoning). tom_depth=1
+    uses only the focal power's improvement. tom_depth>=2 also requires the
+    counterpart's expected value to improve under the deal.
     """
 
     baseline_values = _cached_expected_values(
@@ -72,6 +73,9 @@ def run_rss_for_power(
             value_cache=value_cache,
             state_signature=state_signature,
         )
+        if tom_depth <= 0:
+            proposals.add(other)
+            continue
         deal_value = deal_values.get(power, baseline)
         if deal_value <= baseline:
             continue
