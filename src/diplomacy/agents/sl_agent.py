@@ -311,9 +311,10 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
 
 
 class DeepMindNegotiatorAgent(DeepMindSaveAgent):
-    def __init__(self, *args, rss_rollouts: int = 4, **kwargs):
+    def __init__(self, *args, rss_rollouts: int = 4, tom_depth: int = 2, **kwargs):
         super().__init__(*args, **kwargs)
         self._rss_rollouts = rss_rollouts
+        self._tom_depth = tom_depth
 
     def _policy_fn(self, powers: Sequence[Power], idx: int):
         def fn(state: GameState, _power: Power, legal_actions, restricted):
@@ -349,6 +350,7 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 value_fn=lambda s, pow=p: self._state_value(s, pow),
                 step_fn=self._step_state,
                 rollouts=self._rss_rollouts,
+                tom_depth=self._tom_depth,
             )
             for p in powers
         }
@@ -428,9 +430,10 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
 
 
 class DeepMindNegotiatorAgent(DeepMindSaveAgent):
-    def __init__(self, *args, rss_rollouts: int = 4, **kwargs):
+    def __init__(self, *args, rss_rollouts: int = 4, tom_depth: int = 2, **kwargs):
         super().__init__(*args, **kwargs)
         self._rss_rollouts = rss_rollouts
+        self._tom_depth = tom_depth
 
     def _policy_fn(self, powers: Sequence[Power], idx: int):
         def fn(state: GameState, _power: Power, legal_actions, restricted):
@@ -466,6 +469,7 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 value_fn=lambda s, pow=p: self._state_value(s, pow),
                 step_fn=self._step_state,
                 rollouts=self._rss_rollouts,
+                tom_depth=self._tom_depth,
             )
             for p in powers
         }

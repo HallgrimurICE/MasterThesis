@@ -21,10 +21,15 @@ def run_rss_for_power(
     step_fn: StepFn,
     *,
     rollouts: int = 4,
+    tom_depth: int = 1,
     value_cache: Optional[MutableMapping[Tuple[Tuple[Any, ...], Tuple[Tuple[Power, Tuple[int, ...]], ...]], Mapping[Power, float]]] = None,
     state_signature: Optional[Tuple[Any, ...]] = None,
 ) -> Set[Power]:
-    """Return the set of powers to whom ``power`` proposes Peace."""
+    """Return the set of powers to whom ``power`` proposes Peace.
+
+    tom_depth=1 uses only the focal power's improvement. tom_depth>=2 also
+    requires the counterpart's expected value to improve under the deal.
+    """
 
     baseline_values = _cached_expected_values(
         state,
@@ -68,8 +73,14 @@ def run_rss_for_power(
             state_signature=state_signature,
         )
         deal_value = deal_values.get(power, baseline)
-        if deal_value > baseline:
-            proposals.add(other)
+        if deal_value <= baseline:
+            continue
+        if tom_depth >= 2:
+            other_baseline = baseline_values.get(other, 0.0)
+            other_deal_value = deal_values.get(other, other_baseline)
+            if other_deal_value <= other_baseline:
+                continue
+        proposals.add(other)
     return proposals
 
 
