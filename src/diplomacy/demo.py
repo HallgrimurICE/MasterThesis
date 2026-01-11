@@ -1312,21 +1312,29 @@ if __name__ == "__main__":
     #     base_profile_count=6,
     # )
     #
-    # Two ToM0 negotiators vs one ToM1 negotiator (others random).
+    # Run 20-round experiments: 1 ToM1 vs N ToM0 (rest random).
     # Requires sl_params.npz weights.
-    run_standard_board_mixed_tom_demo(
-        weights_path="data/fppi2_params.npz",
-        rounds=5,
-        rss_rollouts=1,
-        k_candidates=1,
-        action_rollouts=1,
-        negotiation_powers=[Power("Turkey"), Power("France"), Power("Russia")],
-        tom_depths={
-            Power("Turkey"): 1,
-            Power("France"): 0,
-            Power("Russia"): 0,
-        },
-    )
+    tom0_order = [
+        Power("France"),
+        Power("Russia"),
+        Power("Italy"),
+        Power("Germany"),
+        Power("Austria"),
+        Power("England"),
+    ]
+    for tom0_count in range(0, 6):
+        tom0_powers = tom0_order[:tom0_count]
+        negotiation_powers = [Power("Turkey"), *tom0_powers]
+        tom_depths = {Power("Turkey"): 1, **{power: 0 for power in tom0_powers}}
+        run_standard_board_mixed_tom_demo(
+            weights_path="data/fppi2_params.npz",
+            rounds=20,
+            rss_rollouts=1,
+            k_candidates=1,
+            action_rollouts=1,
+            negotiation_powers=negotiation_powers,
+            tom_depths=tom_depths,
+        )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
