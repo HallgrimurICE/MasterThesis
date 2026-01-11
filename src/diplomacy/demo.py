@@ -789,11 +789,14 @@ def run_standard_board_br_vs_neg(
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
         )
+        sent_counts = {power: 0 for power in negotiation_powers}
+        accepted_counts = {power: 0 for power in negotiation_powers}
         if proposals:
             print("  Proposals:")
             for power in sorted(negotiation_powers, key=str):
                 proposed = proposals.get(power, set())
                 targets = ", ".join(str(p) for p in sorted(proposed, key=str)) or "(none)"
+                sent_counts[power] = len(proposed)
                 print(f"    {power} -> {targets}")
         else:
             print("  No proposals this round (missing negotiators or policies).")
@@ -803,6 +806,10 @@ def run_standard_board_br_vs_neg(
             for contract in contracts:
                 allowed_i = sorted(int(a) for a in contract.allowed_i)
                 allowed_j = sorted(int(a) for a in contract.allowed_j)
+                if contract.player_i in accepted_counts:
+                    accepted_counts[contract.player_i] += 1
+                if contract.player_j in accepted_counts:
+                    accepted_counts[contract.player_j] += 1
                 print(
                     f"    {contract.player_i} <-> {contract.player_j} | "
                     f"{len(allowed_i)} actions for {contract.player_i}, "
@@ -810,6 +817,15 @@ def run_standard_board_br_vs_neg(
                 )
         else:
             print("  No mutual deals this round.")
+        if negotiation_powers:
+            print("  Deal stats:")
+            for power in sorted(negotiation_powers, key=str):
+                sent = sent_counts.get(power, 0)
+                accepted = accepted_counts.get(power, 0)
+                rejected = max(0, sent - accepted)
+                print(
+                    f"    {power}: sent={sent}, accepted={accepted}, rejected={rejected}"
+                )
 
         round_orders: List[Order] = []
         for power, agent in agents.items():
@@ -844,6 +860,12 @@ def run_standard_board_br_vs_neg(
         print(f"\nWinner detected: {winner} controls a majority of supply centers.")
     elif stop_on_winner:
         print("\nNo winner within the configured round limit.")
+    unit_counts: Dict[Power, int] = {}
+    for unit in final_state.units.values():
+        unit_counts[unit.power] = unit_counts.get(unit.power, 0) + 1
+    print("\nFinal unit counts:")
+    for power in sorted(final_state.powers, key=str):
+        print(f"  {power}: {unit_counts.get(power, 0)}")
 
     if visualize:
         interactive_visualize_state_mesh(states, titles)
@@ -968,11 +990,14 @@ def run_standard_board_mixed_tom_demo(
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
         )
+        sent_counts = {power: 0 for power in negotiation_powers}
+        accepted_counts = {power: 0 for power in negotiation_powers}
         if proposals:
             print("  Proposals:")
             for power in sorted(negotiation_powers, key=str):
                 proposed = proposals.get(power, set())
                 targets = ", ".join(str(p) for p in sorted(proposed, key=str)) or "(none)"
+                sent_counts[power] = len(proposed)
                 print(f"    {power} -> {targets}")
         else:
             print("  No proposals this round (missing negotiators or policies).")
@@ -982,6 +1007,10 @@ def run_standard_board_mixed_tom_demo(
             for contract in contracts:
                 allowed_i = sorted(int(a) for a in contract.allowed_i)
                 allowed_j = sorted(int(a) for a in contract.allowed_j)
+                if contract.player_i in accepted_counts:
+                    accepted_counts[contract.player_i] += 1
+                if contract.player_j in accepted_counts:
+                    accepted_counts[contract.player_j] += 1
                 print(
                     f"    {contract.player_i} <-> {contract.player_j} | "
                     f"{len(allowed_i)} actions for {contract.player_i}, "
@@ -989,6 +1018,15 @@ def run_standard_board_mixed_tom_demo(
                 )
         else:
             print("  No mutual deals this round.")
+        if negotiation_powers:
+            print("  Deal stats:")
+            for power in sorted(negotiation_powers, key=str):
+                sent = sent_counts.get(power, 0)
+                accepted = accepted_counts.get(power, 0)
+                rejected = max(0, sent - accepted)
+                print(
+                    f"    {power}: sent={sent}, accepted={accepted}, rejected={rejected}"
+                )
 
         round_orders: List[Order] = []
         for power, agent in agents.items():
@@ -1023,6 +1061,12 @@ def run_standard_board_mixed_tom_demo(
         print(f"\nWinner detected: {winner} controls a majority of supply centers.")
     elif stop_on_winner:
         print("\nNo winner within the configured round limit.")
+    unit_counts: Dict[Power, int] = {}
+    for unit in final_state.units.values():
+        unit_counts[unit.power] = unit_counts.get(unit.power, 0) + 1
+    print("\nFinal unit counts:")
+    for power in sorted(final_state.powers, key=str):
+        print(f"  {power}: {unit_counts.get(power, 0)}")
 
     if visualize:
         interactive_visualize_state_mesh(states, titles)
