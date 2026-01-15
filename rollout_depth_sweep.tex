@@ -1,0 +1,70 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+
+\title{Rollout Depth Sweep Design}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Design}
+The rollout depth sweep evaluates how increasing search depth in the sampled
+best-response heuristic affects performance. Each depth value controls how many
+successive seasons are simulated when scoring candidate joint actions. Deeper
+rollouts increase computation but can improve decision quality by propagating
+value estimates across multiple plies.
+
+\subsection{Sweep Parameters}
+We define a set of rollout depths $D = \{1, 2, 3\}$ and run a fixed number of
+independent games per depth. All other parameters (rollout limit, discount,
+unit weights, opponent sampling, and game length) remain fixed to isolate the
+impact of rollout depth. The sweep is restricted to the negotiation powers only:
+the heuristic policy is applied exclusively to the negotiation powers and all
+non-negotiation powers remain as random baselines to preserve comparability.
+
+\subsection{Procedure}
+For each depth $d \in D$:
+\begin{enumerate}
+    \item Initialize a standard board and assign heuristic agents only to the
+    negotiation powers; all remaining powers are random baselines.
+    \item Run $G$ games of length $R$ rounds using the sampled best-response
+    policy configured with rollout depth $d$.
+    \item Record final supply center counts per power and compute the mean across
+    the $G$ games.
+\end{enumerate}
+
+\subsection{Metrics}
+We report (i) per-power average supply centers, (ii) the mean supply centers for
+heuristic-controlled powers, and (iii) the mean supply centers for random
+powers. These metrics allow comparison of absolute performance and relative
+advantage over baselines.
+
+\subsection{Reproducibility}
+Each sweep uses a shared base seed so that each depth level samples the same
+sequence of game seeds. This ensures differences arise from the rollout depth
+rather than stochastic sampling variance.
+
+\section{Results}
+Table~\ref{tab:rollout-depth-results} reports the average supply centers for
+each rollout depth. If results have not yet been collected, leave the table as
+``TBD'' and populate after running the sweep.
+
+\begin{table}[h]
+    \centering
+    \caption{Average supply centers by rollout depth (TBD).}
+    \label{tab:rollout-depth-results}
+    \begin{tabular}{@{}lccc@{}}
+        \toprule
+        \textbf{Depth} & \textbf{Heuristic Avg} & \textbf{Random Avg} & \textbf{Notes} \\
+        \midrule
+        1 & TBD & TBD & \\
+        2 & TBD & TBD & \\
+        3 & TBD & TBD & \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\end{document}
