@@ -480,7 +480,7 @@ def run_standard_board_heuristic_experiment(
     rounds: int = 50,
     games: int = 20,
     seed: Optional[int] = None,
-    heuristic_powers: Optional[List[Power]] = None,
+    negotiation_powers: Optional[List[Power]] = None,
     hold_probability: float = 0.2,
     rollout_limit: int = 64,
     rollout_depth: int = 1,
@@ -496,7 +496,7 @@ def run_standard_board_heuristic_experiment(
         rounds=rounds,
         games=games,
         seed=seed,
-        heuristic_powers=heuristic_powers,
+        negotiation_powers=negotiation_powers,
         hold_probability=hold_probability,
         rollout_limit=rollout_limit,
         rollout_depth=rollout_depth,
@@ -517,7 +517,7 @@ def _run_heuristic_experiment(
     rounds: int,
     games: int,
     seed: Optional[int],
-    heuristic_powers: Optional[List[Power]],
+    negotiation_powers: Optional[List[Power]],
     hold_probability: float,
     rollout_limit: int,
     rollout_depth: int,
@@ -531,14 +531,14 @@ def _run_heuristic_experiment(
 
     state = standard_initial_state()
     powers = sorted(state.powers, key=str)
-    heuristic_set = set(heuristic_powers or [])
-    random_powers = {power for power in powers if power not in heuristic_set}
+    negotiation_set = set(negotiation_powers or [])
+    random_powers = {power for power in powers if power not in negotiation_set}
 
     random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
-    heuristic_power_list = ", ".join(str(power) for power in sorted(heuristic_set, key=str))
+    negotiation_power_list = ", ".join(str(power) for power in sorted(negotiation_set, key=str))
     print("\nExperiment agent assignments:")
     print(f"  Random agents ({len(random_powers)}): {random_power_list or '(none)'}")
-    print(f"  Heuristic agents ({len(heuristic_set)}): {heuristic_power_list or '(none)'}")
+    print(f"  Negotiation agents ({len(negotiation_set)}): {negotiation_power_list or '(none)'}")
 
     totals: Dict[Power, int] = {power: 0 for power in powers}
     base_rng = random.Random(seed)
@@ -596,7 +596,7 @@ def run_rollout_depth_sweep(
     rounds: int = 50,
     games: int = 20,
     seed: Optional[int] = None,
-    heuristic_powers: Optional[List[Power]] = None,
+    negotiation_powers: Optional[List[Power]] = None,
     hold_probability: float = 0.2,
     rollout_limit: int = 64,
     rollout_depths: Sequence[int] = (1, 2, 3),
@@ -610,13 +610,13 @@ def run_rollout_depth_sweep(
 
     state = standard_initial_state()
     powers = sorted(state.powers, key=str)
-    heuristic_set = set(heuristic_powers or [])
-    random_powers = {power for power in powers if power not in heuristic_set}
+    negotiation_set = set(negotiation_powers or [])
+    random_powers = {power for power in powers if power not in negotiation_set}
     random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
-    heuristic_power_list = ", ".join(str(power) for power in sorted(heuristic_set, key=str))
+    negotiation_power_list = ", ".join(str(power) for power in sorted(negotiation_set, key=str))
     print("\nRollout depth sweep agent assignments:")
     print(f"  Random agents ({len(random_powers)}): {random_power_list or '(none)'}")
-    print(f"  Heuristic agents ({len(heuristic_set)}): {heuristic_power_list or '(none)'}")
+    print(f"  Negotiation agents ({len(negotiation_set)}): {negotiation_power_list or '(none)'}")
 
     summary: Dict[int, Dict[Power, float]] = {}
     for depth in rollout_depths:
@@ -625,7 +625,7 @@ def run_rollout_depth_sweep(
             rounds=rounds,
             games=games,
             seed=seed,
-            heuristic_powers=heuristic_powers,
+            negotiation_powers=negotiation_powers,
             hold_probability=hold_probability,
             rollout_limit=rollout_limit,
             rollout_depth=depth,
@@ -642,14 +642,14 @@ def run_rollout_depth_sweep(
         per_power = ", ".join(
             f"{power}:{averages.get(power, 0.0):.2f}" for power in powers
         )
-        heuristic_avg = 0.0
+        negotiation_avg = 0.0
         random_avg = 0.0
-        if heuristic_set:
-            heuristic_avg = sum(averages.get(p, 0.0) for p in heuristic_set) / float(len(heuristic_set))
+        if negotiation_set:
+            negotiation_avg = sum(averages.get(p, 0.0) for p in negotiation_set) / float(len(negotiation_set))
         if random_powers:
             random_avg = sum(averages.get(p, 0.0) for p in random_powers) / float(len(random_powers))
         print(
-            f"  depth={depth} | heuristic_avg={heuristic_avg:.2f} "
+            f"  depth={depth} | negotiation_avg={negotiation_avg:.2f} "
             f"| random_avg={random_avg:.2f}"
         )
         print(f"    per power: {per_power}")
