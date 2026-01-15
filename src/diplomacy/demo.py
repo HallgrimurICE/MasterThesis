@@ -655,6 +655,40 @@ def run_rollout_depth_sweep(
         print(f"    per power: {per_power}")
 
 
+def run_rollout_depth_sweep_all_negotiation(
+    *,
+    rounds: int = 50,
+    games: int = 20,
+    seed: Optional[int] = None,
+    hold_probability: float = 0.2,
+    rollout_limit: int = 64,
+    rollout_depths: Sequence[int] = (1, 2, 3),
+    rollout_discount: float = 0.9,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+    base_profile_count: int = 8,
+) -> None:
+    """Sweep rollout depths with all powers treated as negotiation powers."""
+
+    state = standard_initial_state()
+    negotiation_powers = sorted(state.powers, key=str)
+    run_rollout_depth_sweep(
+        rounds=rounds,
+        games=games,
+        seed=seed,
+        negotiation_powers=negotiation_powers,
+        hold_probability=hold_probability,
+        rollout_limit=rollout_limit,
+        rollout_depths=rollout_depths,
+        rollout_discount=rollout_discount,
+        unit_weight=unit_weight,
+        supply_center_weight=supply_center_weight,
+        threatened_penalty=threatened_penalty,
+        base_profile_count=base_profile_count,
+    )
+
+
 def run_standard_board_with_deepmind_turkey(
     *,
     weights_path: str | Path,
