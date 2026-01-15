@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Set
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Set
 import time 
 import numpy as np
 from .adjudication import Adjudicator, Resolution
@@ -492,6 +492,43 @@ def run_standard_board_heuristic_experiment(
 ) -> None:
     """Run multiple games and average final supply centers per power."""
 
+    averages = _run_heuristic_experiment(
+        rounds=rounds,
+        games=games,
+        seed=seed,
+        heuristic_powers=heuristic_powers,
+        hold_probability=hold_probability,
+        rollout_limit=rollout_limit,
+        rollout_depth=rollout_depth,
+        rollout_discount=rollout_discount,
+        unit_weight=unit_weight,
+        supply_center_weight=supply_center_weight,
+        threatened_penalty=threatened_penalty,
+        base_profile_count=base_profile_count,
+    )
+
+    print(f"\nAverage supply centers over {games} games:")
+    for power in sorted(averages, key=str):
+        print(f"  {power}: {averages[power]:.2f}")
+
+
+def _run_heuristic_experiment(
+    *,
+    rounds: int,
+    games: int,
+    seed: Optional[int],
+    heuristic_powers: Optional[List[Power]],
+    hold_probability: float,
+    rollout_limit: int,
+    rollout_depth: int,
+    rollout_discount: float,
+    unit_weight: float,
+    supply_center_weight: float,
+    threatened_penalty: float,
+    base_profile_count: int,
+) -> Dict[Power, float]:
+    """Return average supply centers per power over multiple games."""
+
     state = standard_initial_state()
     powers = sorted(state.powers, key=str)
     heuristic_set = set(heuristic_powers or [])
@@ -551,10 +588,71 @@ def run_standard_board_heuristic_experiment(
         for power in powers:
             totals[power] += center_counts.get(power, 0)
 
-    print(f"\nAverage supply centers over {games} games:")
-    for power in powers:
-        average = totals[power] / float(games)
-        print(f"  {power}: {average:.2f}")
+    return {power: totals[power] / float(games) for power in powers}
+
+
+def run_rollout_depth_sweep(
+    *,
+    rounds: int = 50,
+    games: int = 20,
+    seed: Optional[int] = None,
+    heuristic_powers: Optional[List[Power]] = None,
+    hold_probability: float = 0.2,
+    rollout_limit: int = 64,
+    rollout_depths: Sequence[int] = (1, 2, 3),
+    rollout_discount: float = 0.9,
+    unit_weight: float = 1.0,
+    supply_center_weight: float = 5.0,
+    threatened_penalty: float = 2.0,
+    base_profile_count: int = 8,
+) -> None:
+    """Sweep rollout depths and report average supply centers."""
+
+    state = standard_initial_state()
+    powers = sorted(state.powers, key=str)
+    heuristic_set = set(heuristic_powers or [])
+    random_powers = {power for power in powers if power not in heuristic_set}
+    random_power_list = ", ".join(str(power) for power in sorted(random_powers, key=str))
+    heuristic_power_list = ", ".join(str(power) for power in sorted(heuristic_set, key=str))
+    print("\nRollout depth sweep agent assignments:")
+    print(f"  Random agents ({len(random_powers)}): {random_power_list or '(none)'}")
+    print(f"  Heuristic agents ({len(heuristic_set)}): {heuristic_power_list or '(none)'}")
+
+    summary: Dict[int, Dict[Power, float]] = {}
+    for depth in rollout_depths:
+        print(f"\n[rollout_depth={depth}] Running {games} games for {rounds} rounds...")
+        summary[depth] = _run_heuristic_experiment(
+            rounds=rounds,
+            games=games,
+            seed=seed,
+            heuristic_powers=heuristic_powers,
+            hold_probability=hold_probability,
+            rollout_limit=rollout_limit,
+            rollout_depth=depth,
+            rollout_discount=rollout_discount,
+            unit_weight=unit_weight,
+            supply_center_weight=supply_center_weight,
+            threatened_penalty=threatened_penalty,
+            base_profile_count=base_profile_count,
+        )
+
+    print("\nRollout depth sweep summary (avg supply centers):")
+    for depth in rollout_depths:
+        averages = summary.get(depth, {})
+        per_power = ", ".join(
+            f"{power}:{averages.get(power, 0.0):.2f}" for power in powers
+        )
+        heuristic_avg = 0.0
+        random_avg = 0.0
+        if heuristic_set:
+            heuristic_avg = sum(averages.get(p, 0.0) for p in heuristic_set) / float(len(heuristic_set))
+        if random_powers:
+            random_avg = sum(averages.get(p, 0.0) for p in random_powers) / float(len(random_powers))
+        print(
+            f"  depth={depth} | heuristic_avg={heuristic_avg:.2f} "
+            f"| random_avg={random_avg:.2f}"
+        )
+        print(f"    per power: {per_power}")
 
 
 def run_standard_board_with_deepmind_turkey(
