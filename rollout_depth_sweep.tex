@@ -21,14 +21,15 @@ value estimates across multiple plies.
 We define a set of rollout depths $D = \{1, 2, 3\}$ and run a fixed number of
 independent games per depth. All other parameters (rollout limit, discount,
 unit weights, opponent sampling, and game length) remain fixed to isolate the
-impact of rollout depth. Random agent assignments are held constant across
-sweeps to preserve comparability.
+impact of rollout depth. The sweep is restricted to the negotiation powers only:
+the heuristic policy is applied exclusively to the negotiation powers and all
+non-negotiation powers remain as random baselines to preserve comparability.
 
 \subsection{Procedure}
 For each depth $d \in D$:
 \begin{enumerate}
-    \item Initialize a standard board and assign heuristic agents to the chosen
-    powers; all remaining powers are random baselines.
+    \item Initialize a standard board and assign heuristic agents only to the
+    negotiation powers; all remaining powers are random baselines.
     \item Run $G$ games of length $R$ rounds using the sampled best-response
     policy configured with rollout depth $d$.
     \item Record final supply center counts per power and compute the mean across
