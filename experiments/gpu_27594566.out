@@ -1,0 +1,75 @@
+Sun Jan 11 13:34:58 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA L40S                    On  |   00000000:A1:00.0 Off |                    0 |
+| N/A   32C    P8             33W /  350W |       0MiB /  46068MiB |      0%   E. Process |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+JAX devices: [CudaDevice(id=0)]
+
+[mixed_tom] Agent roster:
+  Austria: RandomAgent
+  England: RandomAgent
+  France: RandomAgent
+  Germany: RandomAgent
+  Italy: RandomAgent
+  Russia: RandomAgent
+  Turkey: DeepMindNegotiatorAgent (tom_depth=1)
+[mixed_tom] Config: rounds=1, k=1, n_rollouts=1, rss_rollouts=1
+
+[Round 1] Phase=SPRING
+  Proposals:
+    Turkey -> England, Germany, Italy, Russia
+  No mutual deals this round.
+  Deal stats:
+    Turkey: sent=4, accepted=0, rejected=4
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria VIE S BUD        | Austria supports BUD to hold.
+  * Austria BUD S TRI        | Austria supports TRI to hold.
+  * Austria TRI S BUD        | Austria supports BUD to hold.
+  * England EDI -> CLY       | England moves from EDI to CLY.
+  * England LON -> ENG       | England moves from LON to ENG.
+  * England LVP S LON -> YOR | England supports LON moving to YOR.
+  * France PAR H             | France holds position in PAR.
+  * France MAR -> BUR        | France moves from MAR to BUR.
+  * France BRE H             | France holds position in BRE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany MUN S KIE        | Germany supports KIE to hold.
+  * Germany BER H            | Germany holds position in BER.
+  * Italy ROM H              | Italy holds position in ROM.
+  * Italy VEN H              | Italy holds position in VEN.
+  * Italy NAP -> ION         | Italy moves from NAP to ION.
+  * Russia STP H             | Russia holds position in STP.
+  * Russia MOS S SEV         | Russia supports SEV to hold.
+  * Russia WAR S BUD -> GAL  | Russia supports BUD moving to GAL.
+  * Russia SEV S MOS         | Russia supports MOS to hold.
+  * Turkey ANK -> BLA        | Turkey moves from ANK to BLA.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey SMY -> ARM        | Turkey moves from SMY to ARM.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+No winner within the configured round limit.
+
+Final unit counts:
+  Austria: 3
+  England: 3
+  France: 3
+  Germany: 3
+  Italy: 3
+  Russia: 4
+  Turkey: 3

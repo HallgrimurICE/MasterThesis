@@ -1,0 +1,41 @@
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/__init__.py", line 88, in <module>
+    from jax._src.ad_checkpoint import checkpoint_wrapper as checkpoint  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/ad_checkpoint.py", line 40, in <module>
+    from jax._src.lax import lax as lax_internal
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/lax/__init__.py", line 313, in <module>
+    from jax._src.lax.ann import (
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/lax/ann.py", line 81, in <module>
+    from jax._src.numpy.indexing import take_along_axis
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/numpy/__init__.py", line 24, in <module>
+    from jax._src.numpy.array_creation import (
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/numpy/array_creation.py", line 27, in <module>
+    from jax._src.numpy import ufuncs
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/numpy/ufuncs.py", line 36, in <module>
+    from jax._src.numpy import error as jnp_error
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/numpy/error.py", line 23, in <module>
+    from jax._src import error_check as error_check_lib
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/error_check.py", line 33, in <module>
+    from jax._src.export import _export
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/export/_export.py", line 58, in <module>
+    from jax._src.export import shape_poly
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/export/shape_poly.py", line 35, in <module>
+    import opt_einsum
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/opt_einsum/__init__.py", line 5, in <module>
+    from opt_einsum.contract import contract, contract_expression, contract_path
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/opt_einsum/contract.py", line 7, in <module>
+    from opt_einsum import backends, blas, helpers, parser, paths, sharing
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/opt_einsum/backends/__init__.py", line 5, in <module>
+    from opt_einsum.backends.dispatch import (
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1506, in _get_spec
+  File "<frozen importlib._bootstrap_external>", line 1638, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 161, in _path_isfile
+  File "<frozen importlib._bootstrap_external>", line 153, in _path_is_mode_type
+  File "<frozen importlib._bootstrap_external>", line 147, in _path_stat
+KeyboardInterrupt

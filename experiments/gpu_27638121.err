@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/__init__.py", line 25, in <module>
+    from jax._src.cloud_tpu_init import cloud_tpu_init as _cloud_tpu_init
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/cloud_tpu_init.py", line 20, in <module>
+    from jax._src import config
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/config.py", line 28, in <module>
+    from jax._src.lib import _jax
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/lib/__init__.py", line 89, in <module>
+    import jaxlib.xla_client as xla_client  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jaxlib/xla_client.py", line 28, in <module>
+    from jaxlib import _jax as _xla
+KeyboardInterrupt

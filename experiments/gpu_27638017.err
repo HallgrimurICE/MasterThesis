@@ -1,0 +1,76 @@
+ERROR:2026-01-17 16:42:59,344:jax._src.xla_bridge:477: Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda13.initialize()
+Traceback (most recent call last):
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 475, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax_plugins/xla_cuda13/__init__.py", line 334, in initialize
+    c_api = xb.register_plugin(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 611, in register_plugin
+    c_api = xla_client.load_pjrt_plugin_dynamically(plugin_name, library_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jaxlib/xla_client.py", line 117, in load_pjrt_plugin_dynamically
+    return _xla.load_pjrt_plugin(plugin_name, library_path, c_api=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: ALREADY_EXISTS: PJRT_Api already exists for device type cuda
+W0117 16:42:59.829092  710539 cuda_executor.cc:1802] GPU interconnect information not available: INTERNAL: NVML doesn't support extracting fabric info or NVLink is not used by the device.
+W0117 16:42:59.901031  710524 cuda_executor.cc:1802] GPU interconnect information not available: INTERNAL: NVML doesn't support extracting fabric info or NVLink is not used by the device.
+<frozen runpy>:128: RuntimeWarning: 'src.diplomacy.demo' found in sys.modules after import of package 'src.diplomacy', but prior to execution of 'src.diplomacy.demo'; this may result in unpredictable behaviour
+ERROR:2026-01-17 16:43:30,164:jax._src.xla_bridge:477: Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda13.initialize()
+Traceback (most recent call last):
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 475, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax_plugins/xla_cuda13/__init__.py", line 334, in initialize
+    c_api = xb.register_plugin(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 611, in register_plugin
+    c_api = xla_client.load_pjrt_plugin_dynamically(plugin_name, library_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jaxlib/xla_client.py", line 117, in load_pjrt_plugin_dynamically
+    return _xla.load_pjrt_plugin(plugin_name, library_path, c_api=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: ALREADY_EXISTS: PJRT_Api already exists for device type cuda
+W0117 16:43:30.428117  710673 cuda_executor.cc:1802] GPU interconnect information not available: INTERNAL: NVML doesn't support extracting fabric info or NVLink is not used by the device.
+W0117 16:43:30.431770  710624 cuda_executor.cc:1802] GPU interconnect information not available: INTERNAL: NVML doesn't support extracting fabric info or NVLink is not used by the device.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/demo.py", line 1347, in <module>
+    #     run_standard_board_mixed_tom_demo(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/demo.py", line 987, in run_standard_board_mixed_tom_demo
+    proposals, contracts = _compute_negotiation_deals(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/demo.py", line 169, in _compute_negotiation_deals
+    proposals[power] = run_rss_for_power(
+                       ^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/negotiation/rss.py", line 64, in run_rss_for_power
+    deal_values = _cached_expected_values(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/negotiation/rss.py", line 108, in _cached_expected_values
+    values = estimate_expected_values(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/negotiation/simulation.py", line 64, in estimate_expected_values
+    joint_actions[power] = policy_fn(state, power, legal_actions, restricted_actions)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/src/diplomacy/demo.py", line 89, in policy_fn
+    actions, _ = policy.actions(
+                 ^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/policytraining/network/network_policy.py", line 85, in actions
+    (initial_outs, step_outs), final_actions = self._network_handler.inference(
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/policytraining/network/parameter_provider.py", line 174, in inference
+    outputs, (final_actions,) = apply_unbatched(self.batch_inference, *args,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/policytraining/network/parameter_provider.py", line 33, in apply_unbatched
+    batched = f(*tree_utils.tree_expand_dims(args),
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/policytraining/network/parameter_provider.py", line 161, in batch_inference
+    initial_output, step_output = self._apply_transform(
+                                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/zhome/c6/2/209115/MasterThesis/policytraining/network/parameter_provider.py", line 151, in _apply_transform
+    output, unused_state = transform(
+                           ^^^^^^^^^^
+  File "/zhome/c6/2/209115/diplomacy312/lib/python3.12/site-packages/jax/_src/tree_util.py", line 1148, in <lambda>
+    lambda keys, values: collections.OrderedDict(safe_zip(keys, values)),
+
+KeyboardInterrupt

@@ -1295,13 +1295,14 @@ if __name__ == "__main__":
     # run_triangle_board_with_random_agents(rounds=10, visualize=False)
     #
     # run_standard_board_with_heuristic_agents(
-    #     rounds=50,
+    #     rounds=0,
     #     visualize=False,
     #     seed=42,
     #     rollout_depth=1,
     #     rollout_limit=32,
     #     base_profile_count=6,
     #     heuristic_powers=[Power("Russia"), Power("France"), Power("Turkey")],
+    #     visualize = True
     # )
     # run_standard_board_heuristic_experiment(
     #     rounds=30,
@@ -1311,132 +1312,132 @@ if __name__ == "__main__":
     #     rollout_limit=24,
     #     base_profile_count=6,
     # )
-    #
+    
     # ToM experiment suite (compute-limited).
     # Requires sl_params.npz weights.
-    weights_path = "data/fppi2_params.npz"
-    rounds = 50
-    rss_rollouts = 1
-    k_candidates = 1
-    action_rollouts = 1
-    seeds = [7, 13, 23, 29, 31, 37, 41, 43, 47, 53]
-    all_powers = [
-        Power("Austria"),
-        Power("England"),
-        Power("France"),
-        Power("Germany"),
-        Power("Italy"),
-        Power("Russia"),
-        Power("Turkey"),
-    ]
+    # weights_path = "data/fppi2_params.npz"
+    # rounds = 30
+    # rss_rollouts = 1
+    # k_candidates = 1
+    # action_rollouts = 1
+    # seeds = [7, 13, 23]
+    # all_powers = [
+    #     Power("Austria"),
+    #     Power("England"),
+    #     Power("France"),
+    #     Power("Germany"),
+    #     Power("Italy"),
+    #     Power("Russia"),
+    #     Power("Turkey"),
+    # ]
 
     # A) Self-play: ToM1 vs ToM2.
-    for seed in seeds:
-        run_standard_board_mixed_tom_demo(
-            weights_path=weights_path,
-            rounds=rounds,
-            seed=seed,
-            rss_rollouts=rss_rollouts,
-            k_candidates=k_candidates,
-            action_rollouts=action_rollouts,
-            negotiation_powers=all_powers,
-            tom_depths={power: 1 for power in all_powers},
-            stop_on_winner=False,
-        )
-    for seed in seeds:
-        run_standard_board_mixed_tom_demo(
-            weights_path=weights_path,
-            rounds=rounds,
-            seed=seed,
-            rss_rollouts=rss_rollouts,
-            k_candidates=k_candidates,
-            action_rollouts=action_rollouts,
-            negotiation_powers=all_powers,
-            tom_depths={power: 2 for power in all_powers},
-            stop_on_winner=False,
-        )
+    # for seed in seeds:
+    #     run_standard_board_mixed_tom_demo(
+    #         weights_path=weights_path,
+    #         rounds=rounds,
+    #         seed=seed,
+    #         rss_rollouts=rss_rollouts,
+    #         k_candidates=k_candidates,
+    #         action_rollouts=action_rollouts,
+    #         negotiation_powers=all_powers,
+    #         tom_depths={power: 1 for power in all_powers},
+    #         stop_on_winner=False,
+    #     )
+    # for seed in seeds:
+    #     run_standard_board_mixed_tom_demo(
+    #         weights_path=weights_path,
+    #         rounds=rounds,
+    #         seed=seed,
+    #         rss_rollouts=rss_rollouts,
+    #         k_candidates=k_candidates,
+    #         action_rollouts=action_rollouts,
+    #         negotiation_powers=all_powers,
+    #         tom_depths={power: 2 for power in all_powers},
+    #         stop_on_winner=False,
+    #     )
 
     # B) Cross-play: 1x ToM2 vs 6x ToM1 and reverse.
-    focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
-    for focal_power in focal_powers:
-        tom_depths = {power: 1 for power in all_powers}
-        tom_depths[focal_power] = 2
-        for seed in seeds:
-            run_standard_board_mixed_tom_demo(
-                weights_path=weights_path,
-                rounds=rounds,
-                seed=seed,
-                rss_rollouts=rss_rollouts,
-                k_candidates=k_candidates,
-                action_rollouts=action_rollouts,
-                negotiation_powers=all_powers,
-                tom_depths=tom_depths,
-                stop_on_winner=False,
-            )
-    for focal_power in focal_powers:
-        tom_depths = {power: 2 for power in all_powers}
-        tom_depths[focal_power] = 1
-        for seed in seeds:
-            run_standard_board_mixed_tom_demo(
-                weights_path=weights_path,
-                rounds=rounds,
-                seed=seed,
-                rss_rollouts=rss_rollouts,
-                k_candidates=k_candidates,
-                action_rollouts=action_rollouts,
-                negotiation_powers=all_powers,
-                tom_depths=tom_depths,
-                stop_on_winner=False,
-            )
+    # focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
+    # for focal_power in focal_powers:
+    #     tom_depths = {power: 1 for power in all_powers}
+    #     tom_depths[focal_power] = 2
+    #     for seed in seeds:
+    #         run_standard_board_mixed_tom_demo(
+    #             weights_path=weights_path,
+    #             rounds=rounds,
+    #             seed=seed,
+    #             rss_rollouts=rss_rollouts,
+    #             k_candidates=k_candidates,
+    #             action_rollouts=action_rollouts,
+    #             negotiation_powers=all_powers,
+    #             tom_depths=tom_depths,
+    #             stop_on_winner=False,
+    #         )
+    # for focal_power in focal_powers:
+    #     tom_depths = {power: 2 for power in all_powers}
+    #     tom_depths[focal_power] = 1
+    #     for seed in seeds:
+    #         run_standard_board_mixed_tom_demo(
+    #             weights_path=weights_path,
+    #             rounds=rounds,
+    #             seed=seed,
+    #             rss_rollouts=rss_rollouts,
+    #             k_candidates=k_candidates,
+    #             action_rollouts=action_rollouts,
+    #             negotiation_powers=all_powers,
+    #             tom_depths=tom_depths,
+    #             stop_on_winner=False,
+    #         )
 
     # C) Dose-response: mixed ToM2 population share.
-    dose_configs = [
-        (2, "2x ToM2 vs 5x ToM1"),
-        (4, "4x ToM2 vs 3x ToM1"),
-        (6, "6x ToM2 vs 1x ToM1"),
-    ]
-    for tom2_count, _label in dose_configs:
-        tom2_powers = all_powers[:tom2_count]
-        tom_depths = {power: 1 for power in all_powers}
-        tom_depths.update({power: 2 for power in tom2_powers})
-        for seed in seeds:
-            run_standard_board_mixed_tom_demo(
-                weights_path=weights_path,
-                rounds=rounds,
-                seed=seed,
-                rss_rollouts=rss_rollouts,
-                k_candidates=k_candidates,
-                action_rollouts=action_rollouts,
-                negotiation_powers=all_powers,
-                tom_depths=tom_depths,
-                stop_on_winner=False,
-            )
+    # dose_configs = [
+    #     (2, "2x ToM2 vs 5x ToM1"),
+    #     (4, "4x ToM2 vs 3x ToM1"),
+    #     (6, "6x ToM2 vs 1x ToM1"),
+    # ]
+    # for tom2_count, _label in dose_configs:
+    #     tom2_powers = all_powers[:tom2_count]
+    #     tom_depths = {power: 1 for power in all_powers}
+    #     tom_depths.update({power: 2 for power in tom2_powers})
+    #     for seed in seeds:
+    #         run_standard_board_mixed_tom_demo(
+    #             weights_path=weights_path,
+    #             rounds=rounds,
+    #             seed=seed,
+    #             rss_rollouts=rss_rollouts,
+    #             k_candidates=k_candidates,
+    #             action_rollouts=action_rollouts,
+    #             negotiation_powers=all_powers,
+    #             tom_depths=tom_depths,
+    #             stop_on_winner=False,
+    #         )
 
-    # D) Proposal acceptance rate: compare ToM1 vs ToM2 (reuse A1/A2 configs).
-    for seed in seeds:
-        run_standard_board_mixed_tom_demo(
-            weights_path=weights_path,
-            rounds=rounds,
-            seed=seed,
-            rss_rollouts=rss_rollouts,
-            k_candidates=k_candidates,
-            action_rollouts=action_rollouts,
-            negotiation_powers=all_powers,
-            tom_depths={power: 1 for power in all_powers},
-            stop_on_winner=False,
-        )
-    for seed in seeds:
-        run_standard_board_mixed_tom_demo(
-            weights_path=weights_path,
-            rounds=rounds,
-            seed=seed,
-            rss_rollouts=rss_rollouts,
-            k_candidates=k_candidates,
-            action_rollouts=action_rollouts,
-            negotiation_powers=all_powers,
-            tom_depths={power: 2 for power in all_powers},
-            stop_on_winner=False,
-        )
+    # # D) Proposal acceptance rate: compare ToM1 vs ToM2 (reuse A1/A2 configs).
+    # for seed in seeds:
+    #     run_standard_board_mixed_tom_demo(
+    #         weights_path=weights_path,
+    #         rounds=rounds,
+    #         seed=seed,
+    #         rss_rollouts=rss_rollouts,
+    #         k_candidates=k_candidates,
+    #         action_rollouts=action_rollouts,
+    #         negotiation_powers=all_powers,
+    #         tom_depths={power: 1 for power in all_powers},
+    #         stop_on_winner=False,
+    #     )
+    # for seed in seeds:
+    #     run_standard_board_mixed_tom_demo(
+    #         weights_path=weights_path,
+    #         rounds=rounds,
+    #         seed=seed,
+    #         rss_rollouts=rss_rollouts,
+    #         k_candidates=k_candidates,
+    #         action_rollouts=action_rollouts,
+    #         negotiation_powers=all_powers,
+    #         tom_depths={power: 2 for power in all_powers},
+    #         stop_on_winner=False,
+    #     )
 
     # run_standard_board_with_mixed_deepmind_and_random(
     #     weights_path=default_weights,
@@ -1475,12 +1476,7 @@ if __name__ == "__main__":
     #     action_rollouts=1,
     #     tom_depth=0,
     # )
-    # run_standard_board_br_vs_neg(
-    #     weights_path="data/fppi2_params.npz",
-    #     negotiation_powers=[Power("Turkey")],
-    #     rounds=5,
-    #     rss_rollouts=1,
-    #     k_candidates=1,
-    #     action_rollouts=1,
-    #     tom_depth=1,
-    # )
+    run_standard_board_with_random_agents(
+        rounds=1,
+        visualize=True
+    )
