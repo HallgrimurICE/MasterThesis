@@ -8,6 +8,7 @@ import numpy as np
 from .adjudication import Adjudicator, Resolution
 from .agents import (
     Agent,
+    HeuristicNegotiatorAgent,
     ObservationBestResponseAgent,
     RandomAgent,
     SampledBestResponsePolicy,
@@ -531,7 +532,14 @@ def run_standard_board_heuristic_experiment(
                     threatened_penalty=threatened_penalty,
                     base_profile_count=base_profile_count,
                 )
-                agents[power] = ObservationBestResponseAgent(power, policy=policy)
+                agents[power] = HeuristicNegotiatorAgent(
+                    power,
+                    policy=policy,
+                    rng=random.Random(agent_seed),
+                    unit_weight=unit_weight,
+                    supply_center_weight=supply_center_weight,
+                    threatened_penalty=threatened_penalty,
+                )
 
         states, _, _ = run_rounds_with_agents(
             game_state,
