@@ -1,4 +1,5 @@
 *.npz
+gpu_*
 data/
 *.pyc
 __pycache__/
