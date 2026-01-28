@@ -4,3 +4,10 @@ experiments/
 data/
 *.pyc
 __pycache__/
+
+# experiment outputs
+experiments/*.out
+experiments/**/*.out
+experiments/*.log
+experiments/**/*.log
+
