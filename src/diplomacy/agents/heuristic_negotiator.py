@@ -32,6 +32,7 @@ class HeuristicNegotiatorAgent(Agent):
         unit_weight: float = 1.0,
         supply_center_weight: float = 5.0,
         threatened_penalty: float = 2.0,
+        log_negotiation: bool = False,
     ) -> None:
         super().__init__(power)
         self._policy = policy or SampledBestResponsePolicy()
@@ -41,6 +42,7 @@ class HeuristicNegotiatorAgent(Agent):
         self._unit_weight = unit_weight
         self._supply_center_weight = supply_center_weight
         self._threatened_penalty = threatened_penalty
+        self._log_negotiation = log_negotiation
 
     def _plan_orders(self, state: GameState, round_index: int) -> List[Order]:
         del round_index
@@ -75,7 +77,10 @@ class HeuristicNegotiatorAgent(Agent):
                 rollouts=self._rss_rollouts,
                 tom_depth=self._tom_depth,
             )
-        return compute_active_contracts(state, powers, legal_map, proposals)
+        contracts = compute_active_contracts(state, powers, legal_map, proposals)
+        if self._log_negotiation:
+            self._log_contracts(state, proposals, contracts)
+        return contracts
 
     def _policy_fn(self, power: Power):
         def fn(
@@ -177,6 +182,25 @@ class HeuristicNegotiatorAgent(Agent):
             else:
                 adjusted_orders.append(hold(unit))
         return adjusted_orders
+
+    def _log_contracts(
+        self,
+        state: GameState,
+        proposals: Mapping[Power, Set[Power]],
+        contracts: Sequence[Contract],
+    ) -> None:
+        phase = state.phase.name
+        powers = sorted(state.powers, key=str)
+        print(f"[heuristic_negotiator] Phase={phase} Negotiation proposals:")
+        for power in powers:
+            partners = ", ".join(str(p) for p in sorted(proposals.get(power, set()), key=str))
+            print(f"  {power}: {partners or '(none)'}")
+        if contracts:
+            print("[heuristic_negotiator] Active contracts:")
+            for contract in contracts:
+                print(f"  {contract.power_i} <-> {contract.power_j}")
+        else:
+            print("[heuristic_negotiator] Active contracts: (none)")
 
 
 __all__ = ["HeuristicNegotiatorAgent"]
