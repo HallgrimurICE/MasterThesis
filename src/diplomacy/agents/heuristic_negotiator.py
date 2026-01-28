@@ -198,7 +198,7 @@ class HeuristicNegotiatorAgent(Agent):
         if contracts:
             print("[heuristic_negotiator] Active contracts:")
             for contract in contracts:
-                print(f"  {contract.power_i} <-> {contract.power_j}")
+                print(f"  {contract.player_i} <-> {contract.player_j}")
         else:
             print("[heuristic_negotiator] Active contracts: (none)")
 
