@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import csv
 import random
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Set
 import time 
 import numpy as np
 from .adjudication import Adjudicator, Resolution
@@ -184,6 +185,45 @@ def _compute_negotiation_deals(
         proposals=proposals,
     )
     return proposals, contracts
+
+
+def _init_negotiation_csv(csv_path: Path) -> None:
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "round",
+                "phase",
+                "power",
+                "sent_count",
+                "accepted_count",
+                "rejected_count",
+                "sent_to",
+                "accepted_with",
+            ],
+        )
+        writer.writeheader()
+
+
+def _append_negotiation_rows(csv_path: Path, rows: List[Dict[str, Any]]) -> None:
+    if not rows:
+        return
+    with csv_path.open("a", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "round",
+                "phase",
+                "power",
+                "sent_count",
+                "accepted_count",
+                "rejected_count",
+                "sent_to",
+                "accepted_with",
+            ],
+        )
+        writer.writerows(rows)
 
 
 def print_standard_board_demo() -> None:
@@ -685,6 +725,7 @@ def run_standard_board_br_vs_neg(
     tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
+    negotiation_csv_path: Optional[Path] = None,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -704,8 +745,11 @@ def run_standard_board_br_vs_neg(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    negotiation_powers = negotiation_powers 
-    baseline_powers = baseline_powers 
+    negotiation_powers = negotiation_powers or []
+    baseline_powers = baseline_powers or []
+    negotiation_csv_path = Path(negotiation_csv_path) if negotiation_csv_path else None
+    if negotiation_csv_path is not None:
+        _init_negotiation_csv(negotiation_csv_path)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -819,13 +863,42 @@ def run_standard_board_br_vs_neg(
             print("  No mutual deals this round.")
         if negotiation_powers:
             print("  Deal stats:")
+            csv_rows: List[Dict[str, Any]] = []
             for power in sorted(negotiation_powers, key=str):
                 sent = sent_counts.get(power, 0)
                 accepted = accepted_counts.get(power, 0)
                 rejected = max(0, sent - accepted)
+                proposed = proposals.get(power, set())
+                accepted_with = {
+                    contract.player_j
+                    for contract in contracts
+                    if contract.player_i == power
+                } | {
+                    contract.player_i
+                    for contract in contracts
+                    if contract.player_j == power
+                }
                 print(
                     f"    {power}: sent={sent}, accepted={accepted}, rejected={rejected}"
                 )
+                csv_rows.append(
+                    {
+                        "round": movement_round,
+                        "phase": state.phase.name,
+                        "power": str(power),
+                        "sent_count": sent,
+                        "accepted_count": accepted,
+                        "rejected_count": rejected,
+                        "sent_to": "|".join(
+                            str(p) for p in sorted(proposed, key=str)
+                        ),
+                        "accepted_with": "|".join(
+                            str(p) for p in sorted(accepted_with, key=str)
+                        ),
+                    }
+                )
+            if negotiation_csv_path is not None:
+                _append_negotiation_rows(negotiation_csv_path, csv_rows)
 
         round_orders: List[Order] = []
         for power, agent in agents.items():
@@ -884,6 +957,7 @@ def run_standard_board_mixed_tom_demo(
     negotiation_powers: Optional[List[Power]] = None,
     tom_depths: Optional[Dict[Power, int]] = None,
     default_tom_depth: int = 1,
+    negotiation_csv_path: Optional[Path] = None,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -904,6 +978,9 @@ def run_standard_board_mixed_tom_demo(
     base_rng = random.Random(seed)
     negotiation_powers = negotiation_powers or []
     tom_depths = tom_depths or {}
+    negotiation_csv_path = Path(negotiation_csv_path) if negotiation_csv_path else None
+    if negotiation_csv_path is not None:
+        _init_negotiation_csv(negotiation_csv_path)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -1020,13 +1097,42 @@ def run_standard_board_mixed_tom_demo(
             print("  No mutual deals this round.")
         if negotiation_powers:
             print("  Deal stats:")
+            csv_rows: List[Dict[str, Any]] = []
             for power in sorted(negotiation_powers, key=str):
                 sent = sent_counts.get(power, 0)
                 accepted = accepted_counts.get(power, 0)
                 rejected = max(0, sent - accepted)
+                proposed = proposals.get(power, set())
+                accepted_with = {
+                    contract.player_j
+                    for contract in contracts
+                    if contract.player_i == power
+                } | {
+                    contract.player_i
+                    for contract in contracts
+                    if contract.player_j == power
+                }
                 print(
                     f"    {power}: sent={sent}, accepted={accepted}, rejected={rejected}"
                 )
+                csv_rows.append(
+                    {
+                        "round": movement_round,
+                        "phase": state.phase.name,
+                        "power": str(power),
+                        "sent_count": sent,
+                        "accepted_count": accepted,
+                        "rejected_count": rejected,
+                        "sent_to": "|".join(
+                            str(p) for p in sorted(proposed, key=str)
+                        ),
+                        "accepted_with": "|".join(
+                            str(p) for p in sorted(accepted_with, key=str)
+                        ),
+                    }
+                )
+            if negotiation_csv_path is not None:
+                _append_negotiation_rows(negotiation_csv_path, csv_rows)
 
         round_orders: List[Order] = []
         for power, agent in agents.items():
