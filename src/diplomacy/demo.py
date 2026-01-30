@@ -196,6 +196,7 @@ def _init_negotiation_csv(csv_path: Path) -> None:
                 "round",
                 "phase",
                 "power",
+                "tom_depth",
                 "sent_count",
                 "accepted_count",
                 "rejected_count",
@@ -216,6 +217,7 @@ def _append_negotiation_rows(csv_path: Path, rows: List[Dict[str, Any]]) -> None
                 "round",
                 "phase",
                 "power",
+                "tom_depth",
                 "sent_count",
                 "accepted_count",
                 "rejected_count",
@@ -869,6 +871,7 @@ def run_standard_board_br_vs_neg(
                 accepted = accepted_counts.get(power, 0)
                 rejected = max(0, sent - accepted)
                 proposed = proposals.get(power, set())
+                depth = tom_depth
                 accepted_with = {
                     contract.player_j
                     for contract in contracts
@@ -886,6 +889,7 @@ def run_standard_board_br_vs_neg(
                         "round": movement_round,
                         "phase": state.phase.name,
                         "power": str(power),
+                        "tom_depth": depth,
                         "sent_count": sent,
                         "accepted_count": accepted,
                         "rejected_count": rejected,
@@ -1103,6 +1107,7 @@ def run_standard_board_mixed_tom_demo(
                 accepted = accepted_counts.get(power, 0)
                 rejected = max(0, sent - accepted)
                 proposed = proposals.get(power, set())
+                depth = tom_depths.get(power, default_tom_depth)
                 accepted_with = {
                     contract.player_j
                     for contract in contracts
@@ -1120,6 +1125,7 @@ def run_standard_board_mixed_tom_demo(
                         "round": movement_round,
                         "phase": state.phase.name,
                         "power": str(power),
+                        "tom_depth": depth,
                         "sent_count": sent,
                         "accepted_count": accepted,
                         "rejected_count": rejected,
