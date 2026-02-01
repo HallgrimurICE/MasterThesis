@@ -1424,6 +1424,7 @@ if __name__ == "__main__":
     #             negotiation_powers=all_powers,
     #             tom_depths=tom_depths,
     #             stop_on_winner=False,
+    #             use_relationships=True,
     #         )
     # for focal_power in focal_powers:
     #     tom_depths = {power: 2 for power in all_powers}
@@ -1439,6 +1440,7 @@ if __name__ == "__main__":
     #             negotiation_powers=all_powers,
     #             tom_depths=tom_depths,
     #             stop_on_winner=False,
+    #             use_relationships=True,
     #         )
 
     # C) Dose-response: mixed ToM2 population share.
