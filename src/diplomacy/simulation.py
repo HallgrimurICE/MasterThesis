@@ -104,6 +104,15 @@ def     run_rounds_with_agents(
             )
             title += f" [Builds: {summary}]"
         titles.append(title)
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent.on_round_end(
+                previous_state=states[-2],
+                next_state=state,
+                orders=round_orders,
+                round_index=movement_round,
+            )
         if stop_on_winner and resolution.winner is not None:
             break
 

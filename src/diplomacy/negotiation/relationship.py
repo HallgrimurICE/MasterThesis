@@ -41,6 +41,7 @@ class RelationshipAwareNegotiator:
         self.partner_utility_weight = partner_utility_weight
         self.log_relationships = log_relationships
         self.relationships: Dict[Power, float] = {}
+        self._last_value_deltas: Dict[Power, float] = {}
 
     def reset_relationships(self, powers: Iterable[Power]) -> None:
         self.relationships = {p: 1.0 for p in powers if p != self.power}
@@ -67,6 +68,7 @@ class RelationshipAwareNegotiator:
         rollouts: int = 4,
         tom_depth: int = 1,
     ) -> Set[Power]:
+        self._last_value_deltas = {}
         baseline_values = estimate_expected_values(
             state,
             target_powers=powers,
@@ -113,6 +115,7 @@ class RelationshipAwareNegotiator:
             self_delta = deal_value - baseline
             other_baseline = baseline_values.get(other, 0.0)
             other_delta = deal_values.get(other, other_baseline) - other_baseline
+            self._last_value_deltas[other] = self_delta
 
             if tom_depth >= 2 and other_delta <= 0:
                 continue
@@ -148,9 +151,10 @@ class RelationshipAwareNegotiator:
         }
         proposed_partners = proposals.get(self.power, set())
 
+        resolved_deltas = value_deltas or self._last_value_deltas
         for other in self.relationships:
-            if value_deltas and other in value_deltas:
-                delta = value_deltas[other]
+            if resolved_deltas and other in resolved_deltas:
+                delta = resolved_deltas[other]
             elif other in accepted_partners:
                 delta = 1.0
             elif other in proposed_partners:

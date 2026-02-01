@@ -18,9 +18,10 @@ from .maps import (
     triangle_initial_state,
 )
 try:
-    from .agents.sl_agent import DeepMindNegotiatorAgent
+    from .agents.sl_agent import DeepMindNegotiatorAgent, RelationshipAwareNegotiatorAgent
 except Exception:  # pragma: no cover - optional until negotiator lands
     DeepMindNegotiatorAgent = None  # type: ignore
+    RelationshipAwareNegotiatorAgent = None  # type: ignore
 from .agents.sl_agent import DeepMindSlAgent, DeepMindSaveAgent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
@@ -30,7 +31,6 @@ from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, UnitType, describe_order
 from .negotiation.rss import run_rss_for_power, compute_active_contracts
-from .negotiation.relationship import RelationshipAwareNegotiator
 from .viz.mesh import interactive_visualize_state_mesh, visualize_state
 
 
@@ -129,7 +129,6 @@ def _compute_negotiation_deals(
     negotiation_powers: List[Power],
     *,
     rss_rollouts: int = 4,
-    relationship_negotiators: Optional[Dict[Power, RelationshipAwareNegotiator]] = None,
 ) -> Tuple[Dict[Power, Set[Power]], List]:
     powers = sorted(state.powers, key=str)
     negotiators = [p for p in powers if p in negotiation_powers]
@@ -168,30 +167,16 @@ def _compute_negotiation_deals(
         return sl_state_value(state_val, power_val, policy=policy)
 
     for power in negotiators:
-        relationship_negotiator = None
-        if relationship_negotiators:
-            relationship_negotiator = relationship_negotiators.get(power)
-        if relationship_negotiator is None:
-            proposals[power] = run_rss_for_power(
-                state=state,
-                power=power,
-                powers=powers,
-                legal_actions=legal_by_power,
-                policy_fns=policy_fns,
-                value_fn=value_fn,
-                step_fn=_step_state_from_actions,
-                rollouts=rss_rollouts,
-            )
-        else:
-            proposals[power] = relationship_negotiator.propose_partners(
-                state=state,
-                powers=powers,
-                legal_actions=legal_by_power,
-                policy_fns=policy_fns,
-                value_fn=value_fn,
-                step_fn=_step_state_from_actions,
-                rollouts=rss_rollouts,
-            )
+        proposals[power] = run_rss_for_power(
+            state=state,
+            power=power,
+            powers=powers,
+            legal_actions=legal_by_power,
+            policy_fns=policy_fns,
+            value_fn=value_fn,
+            step_fn=_step_state_from_actions,
+            rollouts=rss_rollouts,
+        )
 
     contracts = compute_active_contracts(
         state=state,
@@ -726,24 +711,18 @@ def run_standard_board_br_vs_neg(
     negotiation_powers = negotiation_powers
     baseline_powers = baseline_powers
 
-    relationship_negotiators: Dict[Power, RelationshipAwareNegotiator] = {}
-    if use_relationships and negotiation_powers:
-        relationship_negotiators = {
-            power: RelationshipAwareNegotiator(
-                power,
-                gamma=relationship_gamma,
-                log_relationships=log_relationships,
-            )
-            for power in negotiation_powers
-        }
-        for negotiator in relationship_negotiators.values():
-            negotiator.reset_relationships(state.powers)
-
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
         agent_seed = base_rng.randint(0, 2**32 - 1)
         if power in negotiation_powers:
-            agents[power] = DeepMindNegotiatorAgent(
+            negotiator_cls = DeepMindNegotiatorAgent
+            if use_relationships:
+                if RelationshipAwareNegotiatorAgent is None:
+                    raise ImportError(
+                        "RelationshipAwareNegotiatorAgent not available; implement it in agents/sl_agent.py."
+                    )
+                negotiator_cls = RelationshipAwareNegotiatorAgent
+            negotiator_kwargs = dict(
                 power=power,
                 sl_params_path=str(weights_path),
                 rng_seed=agent_seed,
@@ -753,6 +732,12 @@ def run_standard_board_br_vs_neg(
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depth,
             )
+            if use_relationships:
+                negotiator_kwargs.update(
+                    relationship_gamma=relationship_gamma,
+                    relationship_log=log_relationships,
+                )
+            agents[power] = negotiator_cls(**negotiator_kwargs)
         elif power in baseline_powers:
             agents[power] = DeepMindSaveAgent(
                 power=power,
@@ -820,7 +805,6 @@ def run_standard_board_br_vs_neg(
             agents=agents,
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
-            relationship_negotiators=relationship_negotiators or None,
         )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
@@ -883,12 +867,15 @@ def run_standard_board_br_vs_neg(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
-        if relationship_negotiators:
-            for negotiator in relationship_negotiators.values():
-                negotiator.update_relationships(
-                    proposals=proposals,
-                    contracts=contracts,
-                )
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent.on_round_end(
+                previous_state=states[-2],
+                next_state=state,
+                orders=round_orders,
+                round_index=movement_round,
+            )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
@@ -946,24 +933,19 @@ def run_standard_board_mixed_tom_demo(
     base_rng = random.Random(seed)
     negotiation_powers = negotiation_powers or []
     tom_depths = tom_depths or {}
-    relationship_negotiators: Dict[Power, RelationshipAwareNegotiator] = {}
-    if use_relationships and negotiation_powers:
-        relationship_negotiators = {
-            power: RelationshipAwareNegotiator(
-                power,
-                gamma=relationship_gamma,
-                log_relationships=log_relationships,
-            )
-            for power in negotiation_powers
-        }
-        for negotiator in relationship_negotiators.values():
-            negotiator.reset_relationships(state.powers)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
         agent_seed = base_rng.randint(0, 2**32 - 1)
         if power in negotiation_powers:
-            agents[power] = DeepMindNegotiatorAgent(
+            negotiator_cls = DeepMindNegotiatorAgent
+            if use_relationships:
+                if RelationshipAwareNegotiatorAgent is None:
+                    raise ImportError(
+                        "RelationshipAwareNegotiatorAgent not available; implement it in agents/sl_agent.py."
+                    )
+                negotiator_cls = RelationshipAwareNegotiatorAgent
+            negotiator_kwargs = dict(
                 power=power,
                 sl_params_path=str(weights_path),
                 rng_seed=agent_seed,
@@ -973,6 +955,12 @@ def run_standard_board_mixed_tom_demo(
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depths.get(power, default_tom_depth),
             )
+            if use_relationships:
+                negotiator_kwargs.update(
+                    relationship_gamma=relationship_gamma,
+                    relationship_log=log_relationships,
+                )
+            agents[power] = negotiator_cls(**negotiator_kwargs)
         else:
             agents[power] = RandomAgent(
                 power,
@@ -1043,7 +1031,6 @@ def run_standard_board_mixed_tom_demo(
             agents=agents,
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
-            relationship_negotiators=relationship_negotiators or None,
         )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
@@ -1106,12 +1093,15 @@ def run_standard_board_mixed_tom_demo(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
-        if relationship_negotiators:
-            for negotiator in relationship_negotiators.values():
-                negotiator.update_relationships(
-                    proposals=proposals,
-                    contracts=contracts,
-                )
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent.on_round_end(
+                previous_state=states[-2],
+                next_state=state,
+                orders=round_orders,
+                round_index=movement_round,
+            )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
