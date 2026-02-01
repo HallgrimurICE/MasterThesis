@@ -14,3 +14,21 @@ To enable relationship-aware negotiation in the demos, pass `use_relationships=T
 `relationship_gamma` / `log_relationships`) to `run_standard_board_br_vs_neg` or `run_standard_board_mixed_tom_demo`.
 These wire `RelationshipAwareNegotiatorAgent`, which mirrors `DeepMindNegotiatorAgent` with relationship-aware RSS
 proposal biasing and per-round updates.
+
+Example (relationship-aware mixed ToM demo):
+```python
+run_standard_board_mixed_tom_demo(
+    weights_path=weights_path,
+    rounds=rounds,
+    seed=seed,
+    rss_rollouts=rss_rollouts,
+    k_candidates=k_candidates,
+    action_rollouts=action_rollouts,
+    negotiation_powers=all_powers,
+    tom_depths=tom_depths,
+    stop_on_winner=False,
+    use_relationships=True,
+    relationship_gamma=0.1,
+    log_relationships=False,
+)
+```
