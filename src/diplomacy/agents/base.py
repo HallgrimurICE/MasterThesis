@@ -53,5 +53,17 @@ class Agent:
 
         return []
 
+    def on_round_end(
+        self,
+        *,
+        previous_state: "GameState",
+        next_state: "GameState",
+        orders: List[Order],
+        round_index: int,
+    ) -> None:
+        """Optional hook invoked after a movement round resolves."""
+
+        return None
+
 
 __all__ = ["Agent"]

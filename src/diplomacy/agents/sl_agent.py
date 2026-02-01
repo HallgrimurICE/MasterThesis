@@ -22,6 +22,7 @@ from ..deepmind.actions import (
 )
 from ..adjudication import Adjudicator
 from ..negotiation.contracts import Contract, restrict_actions_for_power
+from ..negotiation.relationship import RelationshipAwareNegotiator
 from ..negotiation.rss import compute_active_contracts, run_rss_for_power
 
 
@@ -393,6 +394,131 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 best_val, best_candidate = score, my_candidate
 
         return best_candidate or []
+
+
+class RelationshipAwareNegotiatorAgent(DeepMindNegotiatorAgent):
+    """Negotiator agent that biases RSS proposals with relationship values."""
+
+    def __init__(
+        self,
+        *args,
+        relationship_gamma: float = 0.1,
+        relationship_min: float = 0.0,
+        relationship_max: float = 2.0,
+        relationship_partner_weight: float = 0.5,
+        relationship_log: bool = False,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self._relationship = RelationshipAwareNegotiator(
+            self.power,
+            gamma=relationship_gamma,
+            min_relationship=relationship_min,
+            max_relationship=relationship_max,
+            partner_utility_weight=relationship_partner_weight,
+            log_relationships=relationship_log,
+        )
+        self._relationship.reset_relationships([])
+        self._last_proposals: Dict[Power, Set[Power]] = {}
+        self._last_contracts: Sequence[Contract] = []
+
+    def _ensure_relationships(self, powers: Sequence[Power]) -> None:
+        if not self._relationship.relationships:
+            self._relationship.reset_relationships(powers)
+
+    def _best_response_action_indices(self, state: GameState) -> List[int]:
+        powers = sorted(state.powers, key=str)
+        raw_legal = list(legal_actions_from_state(state))
+        if not raw_legal:
+            return []
+
+        self._ensure_relationships(powers)
+
+        legal_map = {p: list(raw_legal[i]) for i, p in enumerate(powers)}
+        policy_fns = {p: self._policy_fn(powers, i) for i, p in enumerate(powers)}
+
+        proposals: Dict[Power, Set[Power]] = {}
+        for power in powers:
+            if power == self.power:
+                proposals[power] = self._relationship.propose_partners(
+                    state=state,
+                    powers=powers,
+                    legal_actions=legal_map,
+                    policy_fns=policy_fns,
+                    value_fn=lambda s, pow=power: self._state_value(s, pow),
+                    step_fn=self._step_state,
+                    rollouts=self._rss_rollouts,
+                    tom_depth=self._tom_depth,
+                )
+            else:
+                proposals[power] = run_rss_for_power(
+                    state=state,
+                    power=power,
+                    powers=powers,
+                    legal_actions=legal_map,
+                    policy_fns=policy_fns,
+                    value_fn=lambda s, pow=power: self._state_value(s, pow),
+                    step_fn=self._step_state,
+                    rollouts=self._rss_rollouts,
+                    tom_depth=self._tom_depth,
+                )
+
+        contracts = compute_active_contracts(state, powers, legal_map, proposals)
+        self._last_proposals = proposals
+        self._last_contracts = contracts
+
+        restricted = [
+            np.asarray(restrict_actions_for_power(p, raw_legal[i], contracts), dtype=np.int64)
+            for i, p in enumerate(powers)
+        ]
+
+        observation = build_observation(state, last_actions=[])
+        rollout_agents = self._build_rollout_agents(state, contracts)
+        my_index = powers.index(self.power)
+        K = getattr(self, "_k_candidates", 8)
+        N = getattr(self, "_action_rollouts", 4)
+
+        best_val, best_candidate = float("-inf"), None
+        slots = list(range(len(powers)))
+        for _ in range(K):
+            joint_actions, _ = self._policy.actions(
+                slots_list=slots,
+                observation=observation,
+                legal_actions=restricted,
+            )
+            my_candidate = list(joint_actions[my_index])
+            candidate_orders = decode_actions_to_orders(state, self.power, my_candidate)
+            score = save(
+                initial_state=state,
+                focal_power=self.power,
+                candidate_orders=candidate_orders,
+                agents=rollout_agents,
+                n_rollouts=N,
+                horizon=1,
+                value_fn=sl_state_value,
+                value_kwargs={"policy": self._policy},
+            )
+            if score > best_val:
+                best_val, best_candidate = score, my_candidate
+
+        return best_candidate or []
+
+    def on_round_end(
+        self,
+        *,
+        previous_state: GameState,
+        next_state: GameState,
+        orders: List[Order],
+        round_index: int,
+    ) -> None:
+        del previous_state, next_state, orders, round_index
+        if not self._last_proposals:
+            return
+        self._relationship.update_relationships(
+            proposals=self._last_proposals,
+            contracts=self._last_contracts,
+        )
+
 
 class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
     def __init__(self, power: Power, policy, contracts):

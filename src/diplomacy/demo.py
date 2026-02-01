@@ -19,9 +19,10 @@ from .maps import (
     triangle_initial_state,
 )
 try:
-    from .agents.sl_agent import DeepMindNegotiatorAgent
+    from .agents.sl_agent import DeepMindNegotiatorAgent, RelationshipAwareNegotiatorAgent
 except Exception:  # pragma: no cover - optional until negotiator lands
     DeepMindNegotiatorAgent = None  # type: ignore
+    RelationshipAwareNegotiatorAgent = None  # type: ignore
 from .agents.sl_agent import DeepMindSlAgent, DeepMindSaveAgent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
@@ -727,7 +728,13 @@ def run_standard_board_br_vs_neg(
     tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
+<<<<<<< HEAD
     negotiation_csv_path: Optional[Path] = None,
+=======
+    use_relationships: bool = False,
+    relationship_gamma: float = 0.1,
+    log_relationships: bool = False,
+>>>>>>> codex/add-relationship-aware-negotiator-class
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -747,17 +754,29 @@ def run_standard_board_br_vs_neg(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
+<<<<<<< HEAD
     negotiation_powers = negotiation_powers or []
     baseline_powers = baseline_powers or []
     negotiation_csv_path = Path(negotiation_csv_path) if negotiation_csv_path else None
     if negotiation_csv_path is not None:
         _init_negotiation_csv(negotiation_csv_path)
+=======
+    negotiation_powers = negotiation_powers
+    baseline_powers = baseline_powers
+>>>>>>> codex/add-relationship-aware-negotiator-class
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
         agent_seed = base_rng.randint(0, 2**32 - 1)
         if power in negotiation_powers:
-            agents[power] = DeepMindNegotiatorAgent(
+            negotiator_cls = DeepMindNegotiatorAgent
+            if use_relationships:
+                if RelationshipAwareNegotiatorAgent is None:
+                    raise ImportError(
+                        "RelationshipAwareNegotiatorAgent not available; implement it in agents/sl_agent.py."
+                    )
+                negotiator_cls = RelationshipAwareNegotiatorAgent
+            negotiator_kwargs = dict(
                 power=power,
                 sl_params_path=str(weights_path),
                 rng_seed=agent_seed,
@@ -767,6 +786,12 @@ def run_standard_board_br_vs_neg(
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depth,
             )
+            if use_relationships:
+                negotiator_kwargs.update(
+                    relationship_gamma=relationship_gamma,
+                    relationship_log=log_relationships,
+                )
+            agents[power] = negotiator_cls(**negotiator_kwargs)
         elif power in baseline_powers:
             agents[power] = DeepMindSaveAgent(
                 power=power,
@@ -927,6 +952,15 @@ def run_standard_board_br_vs_neg(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent.on_round_end(
+                previous_state=states[-2],
+                next_state=state,
+                orders=round_orders,
+                round_index=movement_round,
+            )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
@@ -961,7 +995,13 @@ def run_standard_board_mixed_tom_demo(
     negotiation_powers: Optional[List[Power]] = None,
     tom_depths: Optional[Dict[Power, int]] = None,
     default_tom_depth: int = 1,
+<<<<<<< HEAD
     negotiation_csv_path: Optional[Path] = None,
+=======
+    use_relationships: bool = False,
+    relationship_gamma: float = 0.1,
+    log_relationships: bool = False,
+>>>>>>> codex/add-relationship-aware-negotiator-class
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -990,7 +1030,14 @@ def run_standard_board_mixed_tom_demo(
     for power in sorted(state.powers, key=str):
         agent_seed = base_rng.randint(0, 2**32 - 1)
         if power in negotiation_powers:
-            agents[power] = DeepMindNegotiatorAgent(
+            negotiator_cls = DeepMindNegotiatorAgent
+            if use_relationships:
+                if RelationshipAwareNegotiatorAgent is None:
+                    raise ImportError(
+                        "RelationshipAwareNegotiatorAgent not available; implement it in agents/sl_agent.py."
+                    )
+                negotiator_cls = RelationshipAwareNegotiatorAgent
+            negotiator_kwargs = dict(
                 power=power,
                 sl_params_path=str(weights_path),
                 rng_seed=agent_seed,
@@ -1000,6 +1047,12 @@ def run_standard_board_mixed_tom_demo(
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depths.get(power, default_tom_depth),
             )
+            if use_relationships:
+                negotiator_kwargs.update(
+                    relationship_gamma=relationship_gamma,
+                    relationship_log=log_relationships,
+                )
+            agents[power] = negotiator_cls(**negotiator_kwargs)
         else:
             agents[power] = RandomAgent(
                 power,
@@ -1163,6 +1216,15 @@ def run_standard_board_mixed_tom_demo(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
+        for power, agent in agents.items():
+            if power not in state.powers:
+                continue
+            agent.on_round_end(
+                previous_state=states[-2],
+                next_state=state,
+                orders=round_orders,
+                round_index=movement_round,
+            )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
@@ -1433,7 +1495,11 @@ if __name__ == "__main__":
     rss_rollouts = 1
     k_candidates = 1
     action_rollouts = 1
+<<<<<<< HEAD
     # seeds = [7, 13, 23]
+=======
+    seeds = [7, 13, 23]
+>>>>>>> codex/add-relationship-aware-negotiator-class
     seeds = [7]
     all_powers = [
         Power("Austria"),
@@ -1473,7 +1539,10 @@ if __name__ == "__main__":
 
     # B) Cross-play: 1x ToM2 vs 6x ToM1 and reverse.
     focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
+<<<<<<< HEAD
     print(f"experiments/crossPlay_{focal_powers[1]}_tom2_1_seed_{seeds[0]}.csv")
+=======
+>>>>>>> codex/add-relationship-aware-negotiator-class
     for focal_power in focal_powers:
         tom_depths = {power: 1 for power in all_powers}
         tom_depths[focal_power] = 2
@@ -1488,7 +1557,11 @@ if __name__ == "__main__":
                 negotiation_powers=all_powers,
                 tom_depths=tom_depths,
                 stop_on_winner=False,
+<<<<<<< HEAD
                 negotiation_csv_path=f"experiments/crossPlay_{focal_power}_tom2_1_seed_{seed}.csv"
+=======
+                use_relationships=True,
+>>>>>>> codex/add-relationship-aware-negotiator-class
             )
     # for focal_power in focal_powers:
     #     tom_depths = {power: 2 for power in all_powers}
@@ -1504,6 +1577,7 @@ if __name__ == "__main__":
     #             negotiation_powers=all_powers,
     #             tom_depths=tom_depths,
     #             stop_on_winner=False,
+    #             use_relationships=True,
     #         )
 
     # C) Dose-response: mixed ToM2 population share.
