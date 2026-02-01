@@ -30,6 +30,7 @@ from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, UnitType, describe_order
 from .negotiation.rss import run_rss_for_power, compute_active_contracts
+from .negotiation.relationship import RelationshipAwareNegotiator
 from .viz.mesh import interactive_visualize_state_mesh, visualize_state
 
 
@@ -128,6 +129,7 @@ def _compute_negotiation_deals(
     negotiation_powers: List[Power],
     *,
     rss_rollouts: int = 4,
+    relationship_negotiators: Optional[Dict[Power, RelationshipAwareNegotiator]] = None,
 ) -> Tuple[Dict[Power, Set[Power]], List]:
     powers = sorted(state.powers, key=str)
     negotiators = [p for p in powers if p in negotiation_powers]
@@ -166,16 +168,30 @@ def _compute_negotiation_deals(
         return sl_state_value(state_val, power_val, policy=policy)
 
     for power in negotiators:
-        proposals[power] = run_rss_for_power(
-            state=state,
-            power=power,
-            powers=powers,
-            legal_actions=legal_by_power,
-            policy_fns=policy_fns,
-            value_fn=value_fn,
-            step_fn=_step_state_from_actions,
-            rollouts=rss_rollouts,
-        )
+        relationship_negotiator = None
+        if relationship_negotiators:
+            relationship_negotiator = relationship_negotiators.get(power)
+        if relationship_negotiator is None:
+            proposals[power] = run_rss_for_power(
+                state=state,
+                power=power,
+                powers=powers,
+                legal_actions=legal_by_power,
+                policy_fns=policy_fns,
+                value_fn=value_fn,
+                step_fn=_step_state_from_actions,
+                rollouts=rss_rollouts,
+            )
+        else:
+            proposals[power] = relationship_negotiator.propose_partners(
+                state=state,
+                powers=powers,
+                legal_actions=legal_by_power,
+                policy_fns=policy_fns,
+                value_fn=value_fn,
+                step_fn=_step_state_from_actions,
+                rollouts=rss_rollouts,
+            )
 
     contracts = compute_active_contracts(
         state=state,
@@ -685,6 +701,9 @@ def run_standard_board_br_vs_neg(
     tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
+    use_relationships: bool = False,
+    relationship_gamma: float = 0.1,
+    log_relationships: bool = False,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -704,8 +723,21 @@ def run_standard_board_br_vs_neg(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    negotiation_powers = negotiation_powers 
-    baseline_powers = baseline_powers 
+    negotiation_powers = negotiation_powers
+    baseline_powers = baseline_powers
+
+    relationship_negotiators: Dict[Power, RelationshipAwareNegotiator] = {}
+    if use_relationships and negotiation_powers:
+        relationship_negotiators = {
+            power: RelationshipAwareNegotiator(
+                power,
+                gamma=relationship_gamma,
+                log_relationships=log_relationships,
+            )
+            for power in negotiation_powers
+        }
+        for negotiator in relationship_negotiators.values():
+            negotiator.reset_relationships(state.powers)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -788,6 +820,7 @@ def run_standard_board_br_vs_neg(
             agents=agents,
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
+            relationship_negotiators=relationship_negotiators or None,
         )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
@@ -850,6 +883,12 @@ def run_standard_board_br_vs_neg(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
+        if relationship_negotiators:
+            for negotiator in relationship_negotiators.values():
+                negotiator.update_relationships(
+                    proposals=proposals,
+                    contracts=contracts,
+                )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
@@ -884,6 +923,9 @@ def run_standard_board_mixed_tom_demo(
     negotiation_powers: Optional[List[Power]] = None,
     tom_depths: Optional[Dict[Power, int]] = None,
     default_tom_depth: int = 1,
+    use_relationships: bool = False,
+    relationship_gamma: float = 0.1,
+    log_relationships: bool = False,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -904,6 +946,18 @@ def run_standard_board_mixed_tom_demo(
     base_rng = random.Random(seed)
     negotiation_powers = negotiation_powers or []
     tom_depths = tom_depths or {}
+    relationship_negotiators: Dict[Power, RelationshipAwareNegotiator] = {}
+    if use_relationships and negotiation_powers:
+        relationship_negotiators = {
+            power: RelationshipAwareNegotiator(
+                power,
+                gamma=relationship_gamma,
+                log_relationships=log_relationships,
+            )
+            for power in negotiation_powers
+        }
+        for negotiator in relationship_negotiators.values():
+            negotiator.reset_relationships(state.powers)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -989,6 +1043,7 @@ def run_standard_board_mixed_tom_demo(
             agents=agents,
             negotiation_powers=negotiation_powers,
             rss_rollouts=rss_rollouts,
+            relationship_negotiators=relationship_negotiators or None,
         )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
@@ -1051,6 +1106,12 @@ def run_standard_board_mixed_tom_demo(
             f"auto_disbands={bool(resolution.auto_disbands)}, "
             f"auto_builds={bool(resolution.auto_builds)}"
         )
+        if relationship_negotiators:
+            for negotiator in relationship_negotiators.values():
+                negotiator.update_relationships(
+                    proposals=proposals,
+                    contracts=contracts,
+                )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
             break
