@@ -1366,21 +1366,22 @@ if __name__ == "__main__":
     
     # ToM experiment suite (compute-limited).
     # Requires sl_params.npz weights.
-    # weights_path = "data/fppi2_params.npz"
-    # rounds = 30
-    # rss_rollouts = 1
-    # k_candidates = 1
-    # action_rollouts = 1
-    # seeds = [7, 13, 23]
-    # all_powers = [
-    #     Power("Austria"),
-    #     Power("England"),
-    #     Power("France"),
-    #     Power("Germany"),
-    #     Power("Italy"),
-    #     Power("Russia"),
-    #     Power("Turkey"),
-    # ]
+    weights_path = "data/fppi2_params.npz"
+    rounds = 30
+    rss_rollouts = 1
+    k_candidates = 1
+    action_rollouts = 1
+    seeds = [7, 13, 23]
+    seeds = [7]
+    all_powers = [
+        Power("Austria"),
+        Power("England"),
+        Power("France"),
+        Power("Germany"),
+        Power("Italy"),
+        Power("Russia"),
+        Power("Turkey"),
+    ]
 
     # A) Self-play: ToM1 vs ToM2.
     # for seed in seeds:
@@ -1409,23 +1410,23 @@ if __name__ == "__main__":
     #     )
 
     # B) Cross-play: 1x ToM2 vs 6x ToM1 and reverse.
-    # focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
-    # for focal_power in focal_powers:
-    #     tom_depths = {power: 1 for power in all_powers}
-    #     tom_depths[focal_power] = 2
-    #     for seed in seeds:
-    #         run_standard_board_mixed_tom_demo(
-    #             weights_path=weights_path,
-    #             rounds=rounds,
-    #             seed=seed,
-    #             rss_rollouts=rss_rollouts,
-    #             k_candidates=k_candidates,
-    #             action_rollouts=action_rollouts,
-    #             negotiation_powers=all_powers,
-    #             tom_depths=tom_depths,
-    #             stop_on_winner=False,
-    #             use_relationships=True,
-    #         )
+    focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
+    for focal_power in focal_powers:
+        tom_depths = {power: 1 for power in all_powers}
+        tom_depths[focal_power] = 2
+        for seed in seeds:
+            run_standard_board_mixed_tom_demo(
+                weights_path=weights_path,
+                rounds=rounds,
+                seed=seed,
+                rss_rollouts=rss_rollouts,
+                k_candidates=k_candidates,
+                action_rollouts=action_rollouts,
+                negotiation_powers=all_powers,
+                tom_depths=tom_depths,
+                stop_on_winner=False,
+                use_relationships=True,
+            )
     # for focal_power in focal_powers:
     #     tom_depths = {power: 2 for power in all_powers}
     #     tom_depths[focal_power] = 1
