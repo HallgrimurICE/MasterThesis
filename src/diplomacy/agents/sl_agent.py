@@ -11,7 +11,7 @@ from ..types import Order, Power
 from .base import Agent
 
 from policytraining.run_sl import make_sl_policy
-from ..value_estimation import save, sl_state_value
+from ..value_estimation import ValueFn, save, sl_state_value
 
 # These are the DeepMind-style helpers you are (or will be) writing.
 # They should live under diplomacy/deepmind/ and map your GameState to DM obs/actions.
@@ -37,6 +37,8 @@ class DeepMindSlAgent(Agent):
         temperature: float = 0.1,
         k_candidates: int = 8,
         action_rollouts: int = 4,
+        value_fn: ValueFn = sl_state_value,
+        value_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(power)
         self._policy = make_sl_policy(sl_params_path, rng_seed=rng_seed)
@@ -47,6 +49,11 @@ class DeepMindSlAgent(Agent):
         # Parameters for sampled best-response search.
         self._k_candidates = k_candidates       # K: number of candidate moves
         self._action_rollouts = action_rollouts # N: rollouts per candidate
+        self._value_fn = value_fn
+        value_kwargs = value_kwargs or {}
+        if value_fn is sl_state_value and "policy" not in value_kwargs:
+            value_kwargs = {**value_kwargs, "policy": self._policy}
+        self._value_kwargs = value_kwargs
 
     # ------------------------------------------------------------------------
     # Public planning API used by simulation.run_rounds_with_agents
@@ -106,7 +113,7 @@ class DeepMindSlAgent(Agent):
         - read the 'values' entry from the returned info dict via sl_state_value
           helper.
         """
-        return sl_state_value(state, power, policy=self._policy)
+        return self._value_fn(state, power, **self._value_kwargs)
 
     def _best_response_action_indices(self, state: GameState) -> List[int]:
         """Sample K candidate actions for me and evaluate each with N rollouts.
@@ -265,8 +272,8 @@ class DeepMindSaveAgent(DeepMindSlAgent):
                 agents=rollout_agents,
                 n_rollouts=N,
                 horizon=1,
-                value_fn=sl_state_value,
-                value_kwargs={"policy": self._policy},
+                value_fn=self._value_fn,
+                value_kwargs=self._value_kwargs,
             )
 
             if score > best_value:
@@ -386,8 +393,8 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 agents=rollout_agents,
                 n_rollouts=N,
                 horizon=1,
-                value_fn=sl_state_value,
-                value_kwargs={"policy": self._policy},
+                value_fn=self._value_fn,
+                value_kwargs=self._value_kwargs,
             )
             if score > best_val:
                 best_val, best_candidate = score, my_candidate
@@ -505,8 +512,8 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 agents=rollout_agents,
                 n_rollouts=N,
                 horizon=1,
-                value_fn=sl_state_value,
-                value_kwargs={"policy": self._policy},
+                value_fn=self._value_fn,
+                value_kwargs=self._value_kwargs,
             )
             if score > best_val:
                 best_val, best_candidate = score, my_candidate
