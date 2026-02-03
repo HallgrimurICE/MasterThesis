@@ -728,13 +728,9 @@ def run_standard_board_br_vs_neg(
     tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
-<<<<<<< HEAD
-    negotiation_csv_path: Optional[Path] = None,
-=======
     use_relationships: bool = False,
     relationship_gamma: float = 0.1,
     log_relationships: bool = False,
->>>>>>> codex/add-relationship-aware-negotiator-class
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -754,16 +750,8 @@ def run_standard_board_br_vs_neg(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-<<<<<<< HEAD
-    negotiation_powers = negotiation_powers or []
-    baseline_powers = baseline_powers or []
-    negotiation_csv_path = Path(negotiation_csv_path) if negotiation_csv_path else None
-    if negotiation_csv_path is not None:
-        _init_negotiation_csv(negotiation_csv_path)
-=======
     negotiation_powers = negotiation_powers
     baseline_powers = baseline_powers
->>>>>>> codex/add-relationship-aware-negotiator-class
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -995,15 +983,12 @@ def run_standard_board_mixed_tom_demo(
     negotiation_powers: Optional[List[Power]] = None,
     tom_depths: Optional[Dict[Power, int]] = None,
     default_tom_depth: int = 1,
-<<<<<<< HEAD
-    negotiation_csv_path: Optional[Path] = None,
-=======
     use_relationships: bool = False,
     relationship_gamma: float = 0.1,
     log_relationships: bool = False,
->>>>>>> codex/add-relationship-aware-negotiator-class
     stop_on_winner: bool = True,
     visualize: bool = False,
+    negotiation_csv_path: Optional[str] = None,
 ) -> None:
     """Demo with negotiators using per-power ToM depths plus random agents."""
 
@@ -1495,12 +1480,8 @@ if __name__ == "__main__":
     rss_rollouts = 1
     k_candidates = 1
     action_rollouts = 1
-<<<<<<< HEAD
-    # seeds = [7, 13, 23]
-=======
     seeds = [7, 13, 23]
->>>>>>> codex/add-relationship-aware-negotiator-class
-    seeds = [7]
+    # seeds = [7]
     all_powers = [
         Power("Austria"),
         Power("England"),
@@ -1523,6 +1504,8 @@ if __name__ == "__main__":
     #         negotiation_powers=all_powers,
     #         tom_depths={power: 1 for power in all_powers},
     #         stop_on_winner=False,
+    #         use_relationships=True,
+    #         relationship_gamma=0.2,
     #     )
     # for seed in seeds:
     #     run_standard_board_mixed_tom_demo(
@@ -1535,17 +1518,55 @@ if __name__ == "__main__":
     #         negotiation_powers=all_powers,
     #         tom_depths={power: 2 for power in all_powers},
     #         stop_on_winner=False,
+    #         use_relationships=True,
+    #         relationship_gamma=0.2,
     #     )
 
     # B) Cross-play: 1x ToM2 vs 6x ToM1 and reverse.
-    focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
-<<<<<<< HEAD
-    print(f"experiments/crossPlay_{focal_powers[1]}_tom2_1_seed_{seeds[0]}.csv")
-=======
->>>>>>> codex/add-relationship-aware-negotiator-class
-    for focal_power in focal_powers:
+    # focal_powers = [Power("Turkey"), Power("France"), Power("Russia")]
+    # for focal_power in focal_powers:
+    #     tom_depths = {power: 2 for power in all_powers}
+    #     tom_depths[focal_power] = 3
+    #     for seed in seeds:
+    #         run_standard_board_mixed_tom_demo(
+    #             weights_path=weights_path,
+    #             rounds=rounds,
+    #             seed=seed,
+    #             rss_rollouts=rss_rollouts,
+    #             k_candidates=k_candidates,
+    #             action_rollouts=action_rollouts,
+    #             negotiation_powers=all_powers,
+    #             tom_depths=tom_depths,
+    #             stop_on_winner=False,
+    #             use_relationships=False,
+    #         )
+    # for focal_power in focal_powers:
+    #     tom_depths = {power: 3 for power in all_powers}
+    #     tom_depths[focal_power] = 2
+    #     for seed in seeds:
+    #         run_standard_board_mixed_tom_demo(
+    #             weights_path=weights_path,
+    #             rounds=rounds,
+    #             seed=seed,
+    #             rss_rollouts=rss_rollouts,
+    #             k_candidates=k_candidates,
+    #             action_rollouts=action_rollouts,
+    #             negotiation_powers=all_powers,
+    #             tom_depths=tom_depths,
+    #             stop_on_winner=False,
+    #             use_relationships=False,
+    #         )
+
+    # C) Dose-response: mixed ToM2 population share.
+    dose_configs = [
+        # (2, "2x ToM2 vs 5x ToM1"),
+        (4, "4x ToM2 vs 3x ToM1"),
+        # (6, "6x ToM2 vs 1x ToM1"),
+    ]
+    for tom2_count, _label in dose_configs:
+        tom2_powers = all_powers[:tom2_count]
         tom_depths = {power: 1 for power in all_powers}
-        tom_depths[focal_power] = 2
+        tom_depths.update({power: 2 for power in tom2_powers})
         for seed in seeds:
             run_standard_board_mixed_tom_demo(
                 weights_path=weights_path,
@@ -1557,56 +1578,10 @@ if __name__ == "__main__":
                 negotiation_powers=all_powers,
                 tom_depths=tom_depths,
                 stop_on_winner=False,
-<<<<<<< HEAD
-                negotiation_csv_path=f"experiments/crossPlay_{focal_power}_tom2_1_seed_{seed}.csv"
-=======
-                use_relationships=True,
->>>>>>> codex/add-relationship-aware-negotiator-class
-            )
-    # for focal_power in focal_powers:
-    #     tom_depths = {power: 2 for power in all_powers}
-    #     tom_depths[focal_power] = 1
-    #     for seed in seeds:
-    #         run_standard_board_mixed_tom_demo(
-    #             weights_path=weights_path,
-    #             rounds=rounds,
-    #             seed=seed,
-    #             rss_rollouts=rss_rollouts,
-    #             k_candidates=k_candidates,
-    #             action_rollouts=action_rollouts,
-    #             negotiation_powers=all_powers,
-    #             tom_depths=tom_depths,
-    #             stop_on_winner=False,
-    #             use_relationships=True,
-    #         )
+                use_relationships=False,
+                negotiation_csv_path=f"experiments/dose_response_{tom2_count}xToM3_vs_{len(all_powers) - tom2_count}xToM2.csv",
 
-    # C) Dose-response: mixed ToM2 population share.
-    # dose_configs = [
-    #     (2, "2x ToM2 vs 5x ToM1"),
-    #     (4, "4x ToM2 vs 3x ToM1"),
-    #     (6, "6x ToM2 vs 1x ToM1"),
-    # ]
-    # for tom2_count, _label in dose_configs:
-    #     tom2_powers = all_powers[:tom2_count]
-    #     tom_depths = {power: 1 for power in all_powers}
-    #     tom_depths.update({power: 2 for power in tom2_powers})
-    #     for seed in seeds:
-    #         run_standard_board_mixed_tom_demo(
-    #             weights_path=weights_path,
-    #             rounds=rounds,
-    #             seed=seed,
-    #             rss_rollouts=rss_rollouts,
-    #             k_candidates=k_candidates,
-    #             action_rollouts=action_rollouts,
-    #             negotiation_powers=all_powers,
-    #             tom_depths=tom_depths,
-    #             stop_on_winner=False,
-    #             negotiation_csv_path=(
-    #                 f"experiments/compinationTom_"
-    #                 f"tom2_{tom2_count}_"
-    #                 f"seed_{seed}.csv"
-    #             )
-    #         )
+            )
 
     # # D) Proposal acceptance rate: compare ToM1 vs ToM2 (reuse A1/A2 configs).
     # for seed in seeds:
@@ -1671,7 +1646,7 @@ if __name__ == "__main__":
     #     action_rollouts=1,
     #     tom_depth=0,
     # )
-    run_standard_board_with_random_agents(
-        rounds=1,
-        visualize=True
-    )
+    # run_standard_board_with_random_agents(
+    #     rounds=1,
+    #     visualize=True
+    # )

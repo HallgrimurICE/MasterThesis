@@ -1,0 +1,1799 @@
+
+[mixed_tom] Agent roster:
+  Austria: DeepMindNegotiatorAgent (tom_depth=2)
+  England: DeepMindNegotiatorAgent (tom_depth=2)
+  France: DeepMindNegotiatorAgent (tom_depth=3)
+  Germany: DeepMindNegotiatorAgent (tom_depth=2)
+  Italy: DeepMindNegotiatorAgent (tom_depth=2)
+  Russia: DeepMindNegotiatorAgent (tom_depth=2)
+  Turkey: DeepMindNegotiatorAgent (tom_depth=2)
+[mixed_tom] Config: rounds=30, k=1, n_rollouts=1, rss_rollouts=1
+
+[Round 1] Phase=SPRING
+  Proposals:
+    Austria -> France
+    England -> Germany, Italy, Turkey
+    France -> Germany, Italy, Russia, Turkey
+    Germany -> Austria, England, France, Italy, Russia
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Germany
+    Turkey -> France, Italy
+  Active deals:
+    England <-> Germany | 31 actions for England, 42 actions for Germany
+    England <-> Italy | 31 actions for England, 40 actions for Italy
+    France <-> Germany | 28 actions for France, 42 actions for Germany
+    France <-> Italy | 28 actions for France, 40 actions for Italy
+    France <-> Turkey | 28 actions for France, 33 actions for Turkey
+    Germany <-> Italy | 42 actions for Germany, 40 actions for Italy
+    Germany <-> Russia | 42 actions for Germany, 53 actions for Russia
+    Italy <-> Turkey | 40 actions for Italy, 33 actions for Turkey
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=3, accepted=2, rejected=1
+    France: sent=4, accepted=3, rejected=1
+    Germany: sent=5, accepted=4, rejected=1
+    Italy: sent=6, accepted=4, rejected=2
+    Russia: sent=1, accepted=1, rejected=0
+    Turkey: sent=2, accepted=2, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria TRI -> ALB       | Austria moves from TRI to ALB.
+  * England EDI -> NTH       | England moves from EDI to NTH.
+  * England LON S EDI -> NTH | England supports EDI moving to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France PAR -> BUR        | France moves from PAR to BUR.
+  * France BRE -> ENG        | France moves from BRE to ENG.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Italy NAP -> TYS         | Italy moves from NAP to TYS.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy VEN -> TYR         | Italy moves from VEN to TYR.
+  * Russia MOS -> UKR        | Russia moves from MOS to UKR.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia SEV -> BLA        | Russia moves from SEV to BLA.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey ANK -> BLA        | Turkey moves from ANK to BLA.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey SMY -> ARM        | Turkey moves from SMY to ARM.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 2] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Italy, Russia, Turkey
+    England -> Russia
+    France -> England, Italy
+    Germany -> Italy
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Austria, England, France, Germany, Italy, Turkey
+    Turkey -> England, France, Russia
+  Active deals:
+    Austria <-> Italy | 49 actions for Austria, 33 actions for Italy
+    Austria <-> Russia | 49 actions for Austria, 57 actions for Russia
+    England <-> Russia | 49 actions for England, 62 actions for Russia
+    France <-> Italy | 36 actions for France, 39 actions for Italy
+    Germany <-> Italy | 43 actions for Germany, 37 actions for Italy
+    Italy <-> Russia | 39 actions for Italy, 62 actions for Russia
+    Russia <-> Turkey | 60 actions for Russia, 34 actions for Turkey
+  Deal stats:
+    Austria: sent=6, accepted=2, rejected=4
+    England: sent=1, accepted=1, rejected=0
+    France: sent=2, accepted=1, rejected=1
+    Germany: sent=1, accepted=1, rejected=0
+    Italy: sent=6, accepted=4, rejected=2
+    Russia: sent=6, accepted=4, rejected=2
+    Turkey: sent=3, accepted=1, rejected=2
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria ALB -> GRE       | Austria moves from ALB to GRE.
+  * England NTH S LON -> ENG | England supports LON moving to ENG.
+  * England LON -> ENG       | England moves from LON to ENG.
+  * England LVP H            | England holds position in LVP.
+  * France PAR -> BUR        | France moves from PAR to BUR.
+  * France ENG -> MAO        | France moves from ENG to MAO.
+  * France SPA S ENG -> MAO  | France supports ENG moving to MAO.
+  * Germany MUN -> KIE       | Germany moves from MUN to KIE.
+  * Germany BER S MUN -> KIE | Germany supports MUN moving to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Italy TYR -> VIE         | Italy moves from TYR to VIE.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia UKR -> MOS        | Russia moves from UKR to MOS.
+  * Russia SEV S UKR -> MOS  | Russia supports UKR moving to MOS.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey ANK -> BLA        | Turkey moves from ANK to BLA.
+  * Turkey BUL -> SER        | Turkey moves from BUL to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 2] (Retreat phase)
+[Retreat] France unit in ENG disbands (no retreat order).
+
+[Round 3] Phase=SPRING
+  Proposals:
+    Austria -> England, Germany, Russia
+    England -> (none)
+    France -> Austria, Russia
+    Germany -> France
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Austria, France, Germany, Italy, Turkey
+    Turkey -> (none)
+  Active deals:
+    Austria <-> Russia | 116 actions for Austria, 62 actions for Russia
+    France <-> Russia | 60 actions for France, 62 actions for Russia
+    Italy <-> Russia | 63 actions for Italy, 62 actions for Russia
+  Deal stats:
+    Austria: sent=3, accepted=1, rejected=2
+    England: sent=0, accepted=0, rejected=0
+    France: sent=2, accepted=1, rejected=1
+    Germany: sent=1, accepted=0, rejected=1
+    Italy: sent=6, accepted=1, rejected=5
+    Russia: sent=5, accepted=3, rejected=2
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> HOL       | England moves from NTH to HOL.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France SPA -> POR        | France moves from SPA to POR.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany BER -> MUN       | Germany moves from BER to MUN.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Italy TYR -> TRI         | Italy moves from TYR to TRI.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy VEN S TYR -> TRI   | Italy supports TYR moving to TRI.
+  * Russia MOS -> SEV        | Russia moves from MOS to SEV.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA S ARM -> SEV  | Turkey supports ARM moving to SEV.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey ANK -> CON        | Turkey moves from ANK to CON.
+  * Turkey BUL -> GRE        | Turkey moves from BUL to GRE.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 3] (Retreat phase)
+[Retreat] Russia unit in SEV disbands (no retreat order).
+
+[Round 4] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Russia, Turkey
+    England -> Austria, Germany, Italy, Russia, Turkey
+    France -> (none)
+    Germany -> England, France, Italy, Russia, Turkey
+    Italy -> Austria, France, Germany, Russia, Turkey
+    Russia -> England, France, Italy, Turkey
+    Turkey -> (none)
+  Active deals:
+    Austria <-> England | 120 actions for Austria, 38 actions for England
+    England <-> Germany | 34 actions for England, 64 actions for Germany
+    England <-> Russia | 38 actions for England, 54 actions for Russia
+    Germany <-> Italy | 60 actions for Germany, 54 actions for Italy
+    Italy <-> Russia | 57 actions for Italy, 54 actions for Russia
+  Deal stats:
+    Austria: sent=5, accepted=1, rejected=4
+    England: sent=5, accepted=3, rejected=2
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=5, accepted=2, rejected=3
+    Italy: sent=5, accepted=2, rejected=3
+    Russia: sent=4, accepted=2, rejected=2
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> BUD       | Austria moves from VIE to BUD.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI S BUD -> SER | Austria supports BUD moving to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MAR        | France moves from BUR to MAR.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France POR S MAR -> SPA  | France supports MAR moving to SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Italy TYR -> TRI         | Italy moves from TYR to TRI.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy VEN S TYR -> TRI   | Italy supports TYR moving to TRI.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> SEV        | Russia moves from MOS to SEV.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA S SEV -> RUM  | Turkey supports SEV moving to RUM.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey SEV -> RUM        | Turkey moves from SEV to RUM.
+  * Turkey BUL -> GRE        | Turkey moves from BUL to GRE.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 4] (Retreat phase)
+[Retreat] Austria unit in TRI disbands (no retreat order).
+
+[Round 5] Phase=SPRING
+  Proposals:
+    Austria -> England, France, Germany, Italy, Turkey
+    England -> Austria, France, Turkey
+    France -> (none)
+    Germany -> Austria, England, France, Russia, Turkey
+    Italy -> (none)
+    Russia -> Austria, Italy, Turkey
+    Turkey -> Austria, Russia
+  Active deals:
+    Austria <-> England | 97 actions for Austria, 53 actions for England
+    Austria <-> Germany | 97 actions for Austria, 83 actions for Germany
+    Austria <-> Turkey | 77 actions for Austria, 89 actions for Turkey
+    Russia <-> Turkey | 66 actions for Russia, 100 actions for Turkey
+  Deal stats:
+    Austria: sent=5, accepted=3, rejected=2
+    England: sent=3, accepted=1, rejected=2
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=5, accepted=1, rejected=4
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=3, accepted=1, rejected=2
+    Turkey: sent=2, accepted=2, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> RUM       | Austria moves from BUD to RUM.
+  * Austria SER S BUD -> RUM | Austria supports BUD moving to RUM.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE -> BUL       | Austria moves from GRE to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> HOL       | England moves from NTH to HOL.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy NAP -> ROM         | Italy moves from NAP to ROM.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia MOS -> UKR        | Russia moves from MOS to UKR.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA -> RUM        | Turkey moves from BLA to RUM.
+  * Turkey ANK -> ARM        | Turkey moves from ANK to ARM.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey RUM -> SER        | Turkey moves from RUM to SER.
+  * Turkey BUL S RUM -> SER  | Turkey supports RUM moving to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 6] Phase=FALL
+  Proposals:
+    Austria -> France, Germany, Russia
+    England -> Austria, France, Germany, Italy, Turkey
+    France -> Austria, England, Germany, Russia, Turkey
+    Germany -> Austria, England, France, Russia, Turkey
+    Italy -> England, Germany
+    Russia -> Austria, England, France, Germany, Italy, Turkey
+    Turkey -> Austria, England, Germany
+  Active deals:
+    Austria <-> France | 103 actions for Austria, 62 actions for France
+    Austria <-> Germany | 103 actions for Austria, 73 actions for Germany
+    Austria <-> Russia | 95 actions for Austria, 77 actions for Russia
+    England <-> France | 37 actions for England, 62 actions for France
+    England <-> Germany | 34 actions for England, 73 actions for Germany
+    England <-> Italy | 38 actions for England, 70 actions for Italy
+    England <-> Turkey | 38 actions for England, 108 actions for Turkey
+    France <-> Germany | 60 actions for France, 72 actions for Germany
+    France <-> Russia | 62 actions for France, 85 actions for Russia
+    Germany <-> Russia | 72 actions for Germany, 83 actions for Russia
+    Germany <-> Turkey | 73 actions for Germany, 108 actions for Turkey
+  Deal stats:
+    Austria: sent=3, accepted=3, rejected=0
+    England: sent=5, accepted=4, rejected=1
+    France: sent=5, accepted=4, rejected=1
+    Germany: sent=5, accepted=5, rejected=0
+    Italy: sent=2, accepted=1, rejected=1
+    Russia: sent=6, accepted=3, rejected=3
+    Turkey: sent=3, accepted=2, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BEL       | England moves from ENG to BEL.
+  * England HOL S ENG -> BEL | England supports ENG moving to BEL.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> KIE       | Germany moves from MUN to KIE.
+  * Germany BER S MUN -> KIE | Germany supports MUN moving to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Italy TYS S NAP -> ION   | Italy supports NAP moving to ION.
+  * Italy NAP -> ION         | Italy moves from NAP to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia UKR -> MOS        | Russia moves from UKR to MOS.
+  * Russia SEV S UKR -> MOS  | Russia supports UKR moving to MOS.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA S ARM -> SEV  | Turkey supports ARM moving to SEV.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey RUM S ARM -> SEV  | Turkey supports ARM moving to SEV.
+  * Turkey BUL -> SER        | Turkey moves from BUL to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 6] (Retreat phase)
+[Retreat] Turkey unit in BUL disbands (no retreat order).
+[Retreat] Russia unit in SEV disbands (no retreat order).
+
+[Round 7] Phase=SPRING
+  Proposals:
+    Austria -> Germany, Italy, Russia, Turkey
+    England -> Turkey
+    France -> Austria, England, Germany, Italy, Russia, Turkey
+    Germany -> (none)
+    Italy -> Austria, England
+    Russia -> Austria, England, France, Turkey
+    Turkey -> England, Germany, Italy, Russia
+  Active deals:
+    Austria <-> Italy | 70 actions for Austria, 58 actions for Italy
+    Austria <-> Russia | 76 actions for Austria, 52 actions for Russia
+    England <-> Turkey | 70 actions for England, 96 actions for Turkey
+    France <-> Russia | 61 actions for France, 52 actions for Russia
+    Russia <-> Turkey | 50 actions for Russia, 94 actions for Turkey
+  Deal stats:
+    Austria: sent=4, accepted=2, rejected=2
+    England: sent=1, accepted=1, rejected=0
+    France: sent=6, accepted=1, rejected=5
+    Germany: sent=0, accepted=0, rejected=0
+    Italy: sent=2, accepted=1, rejected=1
+    Russia: sent=4, accepted=3, rejected=1
+    Turkey: sent=4, accepted=2, rejected=2
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> BUD       | Austria moves from VIE to BUD.
+  * Austria GRE S BUD -> SER | Austria supports BUD moving to SER.
+  * Austria BUL S BUD -> SER | Austria supports BUD moving to SER.
+  * England BEL -> NTH       | England moves from BEL to NTH.
+  * England EDI S BEL -> NTH | England supports BEL moving to NTH.
+  * England HOL S BEL -> NTH | England supports BEL moving to NTH.
+  * England LON S BEL -> NTH | England supports BEL moving to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN H            | Germany holds position in MUN.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy TYS -> WES         | Italy moves from TYS to WES.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> SEV        | Russia moves from MOS to SEV.
+  * Russia WAR -> UKR        | Russia moves from WAR to UKR.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ANK -> CON        | Turkey moves from ANK to CON.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey RUM S BUL -> SER  | Turkey supports BUL moving to SER.
+  * Turkey SEV -> MOS        | Turkey moves from SEV to MOS.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 7] (Retreat phase)
+[Retreat] Austria unit in BUL disbands (no retreat order).
+
+[Round 8] Phase=FALL
+  Proposals:
+    Austria -> England, Italy
+    England -> Italy
+    France -> England, Germany, Italy, Russia, Turkey
+    Germany -> England, France
+    Italy -> Austria
+    Russia -> Germany, Turkey
+    Turkey -> Austria, Russia
+  Active deals:
+    Austria <-> Italy | 57 actions for Austria, 60 actions for Italy
+    France <-> Germany | 62 actions for France, 104 actions for Germany
+    Russia <-> Turkey | 41 actions for Russia, 94 actions for Turkey
+  Deal stats:
+    Austria: sent=2, accepted=1, rejected=1
+    England: sent=1, accepted=0, rejected=1
+    France: sent=5, accepted=1, rejected=4
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=1, accepted=1, rejected=0
+    Russia: sent=2, accepted=1, rejected=1
+    Turkey: sent=2, accepted=1, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England NTH S LON -> ENG | England supports LON moving to ENG.
+  * England EDI S NTH        | England supports NTH to hold.
+  * England HOL -> KIE       | England moves from HOL to KIE.
+  * England LON -> ENG       | England moves from LON to ENG.
+  * England LVP -> WAL       | England moves from LVP to WAL.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France POR -> SPA        | France moves from POR to SPA.
+  * France SPA -> MAR        | France moves from SPA to MAR.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE -> HOL       | Germany moves from KIE to HOL.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia UKR -> SEV        | Russia moves from UKR to SEV.
+  * Russia MOS S UKR -> SEV  | Russia supports UKR moving to SEV.
+  * Russia STP H             | Russia holds position in STP.
+  * Turkey BLA -> RUM        | Turkey moves from BLA to RUM.
+  * Turkey ANK -> BLA        | Turkey moves from ANK to BLA.
+  * Turkey RUM -> SER        | Turkey moves from RUM to SER.
+  * Turkey SEV S BLA -> RUM  | Turkey supports BLA moving to RUM.
+  * Turkey BUL S RUM -> SER  | Turkey supports RUM moving to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 8] (Retreat phase)
+[Retreat] Turkey unit in BUL disbands (no retreat order).
+[Retreat] Russia unit in STP disbands (no retreat order).
+[Retreat] Turkey unit in SEV disbands (no retreat order).
+
+[Round 9] Phase=SPRING
+  Proposals:
+    Austria -> Turkey
+    England -> France, Turkey
+    France -> Austria, England, Germany, Italy, Turkey
+    Germany -> England, France
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Austria, Italy, Turkey
+    Turkey -> France, Germany, Italy
+  Active deals:
+    England <-> France | 96 actions for England, 67 actions for France
+    France <-> Germany | 70 actions for France, 100 actions for Germany
+    France <-> Italy | 70 actions for France, 58 actions for Italy
+    France <-> Turkey | 73 actions for France, 77 actions for Turkey
+    Italy <-> Russia | 65 actions for Italy, 56 actions for Russia
+    Italy <-> Turkey | 65 actions for Italy, 77 actions for Turkey
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=2, accepted=1, rejected=1
+    France: sent=5, accepted=4, rejected=1
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=6, accepted=3, rejected=3
+    Russia: sent=3, accepted=1, rejected=2
+    Turkey: sent=3, accepted=2, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S BUD -> SER | Austria supports BUD moving to SER.
+  * Austria BUL S BUD -> SER | Austria supports BUD moving to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England WAL S NTH -> ENG | England supports NTH moving to ENG.
+  * England EDI -> LVP       | England moves from EDI to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany NWY H            | Germany holds position in NWY.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Germany STP S SWE -> FIN | Germany supports SWE moving to FIN.
+  * Italy MAO -> WES         | Italy moves from MAO to WES.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey BLA S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ANK -> SMY        | Turkey moves from ANK to SMY.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey RUM -> SER        | Turkey moves from RUM to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 9] (Retreat phase)
+[Retreat] Austria unit in BUL disbands (no retreat order).
+
+[Round 10] Phase=FALL
+  Proposals:
+    Austria -> England, Germany
+    England -> Austria, France, Germany, Italy, Russia, Turkey
+    France -> (none)
+    Germany -> Austria, Russia
+    Italy -> (none)
+    Russia -> Austria, England, France, Italy
+    Turkey -> Austria, Germany, Italy, Russia
+  Active deals:
+    Austria <-> England | 68 actions for Austria, 89 actions for England
+    Austria <-> Germany | 68 actions for Austria, 95 actions for Germany
+    England <-> Russia | 89 actions for England, 61 actions for Russia
+  Deal stats:
+    Austria: sent=2, accepted=2, rejected=0
+    England: sent=6, accepted=2, rejected=4
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=4, accepted=1, rejected=3
+    Turkey: sent=4, accepted=0, rejected=4
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England WAL S NTH -> ENG | England supports NTH moving to ENG.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> KIE       | Germany moves from MUN to KIE.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany BER S MUN -> KIE | Germany supports MUN moving to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany STP -> LVN       | Germany moves from STP to LVN.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> RUM        | Russia moves from GAL to RUM.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia SEV S GAL -> RUM  | Russia supports GAL moving to RUM.
+  * Turkey BLA -> RUM        | Turkey moves from BLA to RUM.
+  * Turkey RUM -> SER        | Turkey moves from RUM to SER.
+  * Turkey SMY -> AEG        | Turkey moves from SMY to AEG.
+  * Turkey BUL S RUM -> SER  | Turkey supports RUM moving to SER.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 10] (Retreat phase)
+[Retreat] Turkey unit in BUL disbands (no retreat order).
+[Retreat] Turkey unit in RUM disbands (no retreat order).
+
+[Round 11] Phase=SPRING
+  Proposals:
+    Austria -> England
+    England -> France
+    France -> Germany, Italy, Russia
+    Germany -> France, Italy
+    Italy -> Austria, England, France, Turkey
+    Russia -> (none)
+    Turkey -> (none)
+  Active deals:
+    France <-> Germany | 70 actions for France, 114 actions for Germany
+    France <-> Italy | 70 actions for France, 59 actions for Italy
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=1, accepted=0, rejected=1
+    France: sent=3, accepted=2, rejected=1
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=4, accepted=1, rejected=3
+    Russia: sent=0, accepted=0, rejected=0
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S BUD -> SER | Austria supports BUD moving to SER.
+  * Austria BUL S BUD -> SER | Austria supports BUD moving to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> NWY       | England moves from NTH to NWY.
+  * England WAL -> LVP       | England moves from WAL to LVP.
+  * England YOR S WAL -> LVP | England supports WAL moving to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany LVN S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Italy MAO -> WES         | Italy moves from MAO to WES.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia RUM -> SER        | Russia moves from RUM to SER.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey AEG -> ION        | Turkey moves from AEG to ION.
+  * Turkey BLA -> CON        | Turkey moves from BLA to CON.
+  * Turkey ANK -> SMY        | Turkey moves from ANK to SMY.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 12] Phase=FALL
+  Proposals:
+    Austria -> Turkey
+    England -> Austria, France, Germany, Italy, Russia, Turkey
+    France -> Italy, Russia
+    Germany -> England, France, Russia
+    Italy -> France
+    Russia -> Austria, England, France, Germany, Turkey
+    Turkey -> Germany, Russia
+  Active deals:
+    England <-> Germany | 87 actions for England, 107 actions for Germany
+    England <-> Russia | 96 actions for England, 89 actions for Russia
+    France <-> Italy | 71 actions for France, 66 actions for Italy
+    France <-> Russia | 72 actions for France, 89 actions for Russia
+    Germany <-> Russia | 104 actions for Germany, 84 actions for Russia
+    Russia <-> Turkey | 89 actions for Russia, 52 actions for Turkey
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=6, accepted=2, rejected=4
+    France: sent=2, accepted=2, rejected=0
+    Germany: sent=3, accepted=2, rejected=1
+    Italy: sent=1, accepted=1, rejected=0
+    Russia: sent=5, accepted=4, rejected=1
+    Turkey: sent=2, accepted=1, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUD       | Austria moves from SER to BUD.
+  * Austria VIE S SER -> BUD | Austria supports SER moving to BUD.
+  * Austria GRE H            | Austria holds position in GRE.
+  * Austria BUL -> SER       | Austria moves from BUL to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BUR       | Germany moves from MUN to BUR.
+  * Germany LVN -> STP       | Germany moves from LVN to STP.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany NWY S LVN -> STP | Germany supports LVN moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Germany STP -> FIN       | Germany moves from STP to FIN.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy WES -> TYS         | Italy moves from WES to TYS.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey SMY -> CON        | Turkey moves from SMY to CON.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 12] (Retreat phase)
+[Retreat] Austria unit in BUL disbands (no retreat order).
+
+[Round 13] Phase=SPRING
+  Proposals:
+    Austria -> England, France, Germany
+    England -> France, Germany
+    France -> Austria, Germany
+    Germany -> Austria, Turkey
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Turkey
+    Turkey -> Italy
+  Active deals:
+    Austria <-> France | 53 actions for Austria, 69 actions for France
+    Austria <-> Germany | 53 actions for Austria, 120 actions for Germany
+    Italy <-> Turkey | 64 actions for Italy, 69 actions for Turkey
+  Deal stats:
+    Austria: sent=3, accepted=2, rejected=1
+    England: sent=2, accepted=0, rejected=2
+    France: sent=2, accepted=1, rejected=1
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=6, accepted=1, rejected=5
+    Russia: sent=1, accepted=0, rejected=1
+    Turkey: sent=1, accepted=1, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S BUD -> SER | Austria supports BUD moving to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BER       | Germany moves from MUN to BER.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S MUN -> BER | Germany supports MUN moving to BER.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> PRU        | Russia moves from WAR to PRU.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG -> ION        | Turkey moves from AEG to ION.
+  * Turkey ANK -> ARM        | Turkey moves from ANK to ARM.
+  * Turkey SMY -> CON        | Turkey moves from SMY to CON.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 14] Phase=FALL
+  Proposals:
+    Austria -> Turkey
+    England -> France, Germany
+    France -> Germany, Italy
+    Germany -> Austria
+    Italy -> Austria, France, Turkey
+    Russia -> Austria, England, France, Germany, Italy, Turkey
+    Turkey -> (none)
+  Active deals:
+    France <-> Italy | 68 actions for France, 63 actions for Italy
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=2, accepted=0, rejected=2
+    France: sent=2, accepted=1, rejected=1
+    Germany: sent=1, accepted=0, rejected=1
+    Italy: sent=3, accepted=1, rejected=2
+    Russia: sent=6, accepted=0, rejected=6
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> NWY       | England moves from NTH to NWY.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy MAO -> WES         | Italy moves from MAO to WES.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia MOS -> WAR        | Russia moves from MOS to WAR.
+  * Russia PRU S MOS -> WAR  | Russia supports MOS moving to WAR.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=True, auto_builds=True
+
+[Round 15] Phase=SPRING
+  Proposals:
+    Austria -> France, Germany
+    England -> Austria, France, Germany, Italy, Russia
+    France -> (none)
+    Germany -> England, France, Italy, Turkey
+    Italy -> (none)
+    Russia -> Germany, Turkey
+    Turkey -> (none)
+  Active deals:
+    England <-> Germany | 87 actions for England, 91 actions for Germany
+  Deal stats:
+    Austria: sent=2, accepted=0, rejected=2
+    England: sent=5, accepted=1, rejected=4
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=4, accepted=1, rejected=3
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=2, accepted=0, rejected=2
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France MUN S PRU -> BER  | France supports PRU moving to BER.
+  * France PAR -> BUR        | France moves from PAR to BUR.
+  * France BRE H             | France holds position in BRE.
+  * France MAR S PAR -> BUR  | France supports PAR moving to BUR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia PRU -> WAR        | Russia moves from PRU to WAR.
+  * Russia RUM S WAR -> GAL  | Russia supports WAR moving to GAL.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 16] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Italy, Russia, Turkey
+    England -> France
+    France -> Austria, Italy
+    Germany -> Austria
+    Italy -> France, Russia, Turkey
+    Russia -> Turkey
+    Turkey -> (none)
+  Active deals:
+    Austria <-> France | 98 actions for Austria, 100 actions for France
+    Austria <-> Germany | 98 actions for Austria, 99 actions for Germany
+    France <-> Italy | 97 actions for France, 71 actions for Italy
+  Deal stats:
+    Austria: sent=6, accepted=2, rejected=4
+    England: sent=1, accepted=0, rejected=1
+    France: sent=2, accepted=2, rejected=0
+    Germany: sent=1, accepted=1, rejected=0
+    Italy: sent=3, accepted=1, rejected=2
+    Russia: sent=1, accepted=0, rejected=1
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France MUN -> SIL        | France moves from MUN to SIL.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MOS -> STP       | Germany moves from MOS to STP.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY S MOS -> STP | Germany supports MOS moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia PRU S GAL -> WAR  | Russia supports GAL moving to WAR.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV -> MOS        | Russia moves from SEV to MOS.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 17] Phase=SPRING
+  Proposals:
+    Austria -> (none)
+    England -> Austria, France, Germany, Italy, Russia, Turkey
+    France -> (none)
+    Germany -> Austria, England, France, Turkey
+    Italy -> (none)
+    Russia -> Austria, France, Germany, Turkey
+    Turkey -> England, France, Italy
+  Active deals:
+    England <-> Germany | 94 actions for England, 89 actions for Germany
+    England <-> Turkey | 102 actions for England, 74 actions for Turkey
+  Deal stats:
+    Austria: sent=0, accepted=0, rejected=0
+    England: sent=6, accepted=2, rejected=4
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=4, accepted=1, rejected=3
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=4, accepted=0, rejected=4
+    Turkey: sent=3, accepted=1, rejected=2
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France BUR -> MUN        | France moves from BUR to MUN.
+  * France SIL S BUR -> MUN  | France supports BUR moving to MUN.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany STP -> LVN       | Germany moves from STP to LVN.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy MAO H              | Italy holds position in MAO.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia WAR -> MOS        | Russia moves from WAR to MOS.
+  * Russia PRU -> WAR        | Russia moves from PRU to WAR.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 18] Phase=FALL
+  Proposals:
+    Austria -> France, Russia
+    England -> Austria, France, Germany, Russia
+    France -> Italy
+    Germany -> France
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> (none)
+    Turkey -> Austria, England, France, Russia
+  Active deals:
+    France <-> Italy | 90 actions for France, 68 actions for Italy
+  Deal stats:
+    Austria: sent=2, accepted=0, rejected=2
+    England: sent=4, accepted=0, rejected=4
+    France: sent=1, accepted=1, rejected=0
+    Germany: sent=1, accepted=0, rejected=1
+    Italy: sent=6, accepted=1, rejected=5
+    Russia: sent=0, accepted=0, rejected=0
+    Turkey: sent=4, accepted=0, rejected=4
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France MUN S SIL -> BER  | France supports SIL moving to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany LVN S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany BER S KIE -> MUN | Germany supports KIE moving to MUN.
+  * Germany KIE -> MUN       | Germany moves from KIE to MUN.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany SWE -> DEN       | Germany moves from SWE to DEN.
+  * Italy MAO -> WES         | Italy moves from MAO to WES.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia PRU -> WAR        | Russia moves from PRU to WAR.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 19] Phase=SPRING
+  Proposals:
+    Austria -> France, Russia, Turkey
+    England -> Austria, France, Germany, Russia
+    France -> Austria, England, Germany, Italy, Russia, Turkey
+    Germany -> France
+    Italy -> England, Germany, Turkey
+    Russia -> Austria, England, France, Italy, Turkey
+    Turkey -> Austria, England, France, Germany
+  Active deals:
+    Austria <-> France | 95 actions for Austria, 88 actions for France
+    Austria <-> Russia | 87 actions for Austria, 89 actions for Russia
+    Austria <-> Turkey | 82 actions for Austria, 64 actions for Turkey
+    England <-> France | 92 actions for England, 87 actions for France
+    England <-> Russia | 93 actions for England, 96 actions for Russia
+    France <-> Germany | 78 actions for France, 96 actions for Germany
+    France <-> Russia | 85 actions for France, 93 actions for Russia
+    France <-> Turkey | 88 actions for France, 75 actions for Turkey
+  Deal stats:
+    Austria: sent=3, accepted=3, rejected=0
+    England: sent=4, accepted=2, rejected=2
+    France: sent=6, accepted=5, rejected=1
+    Germany: sent=1, accepted=1, rejected=0
+    Italy: sent=3, accepted=0, rejected=3
+    Russia: sent=5, accepted=3, rejected=2
+    Turkey: sent=4, accepted=2, rejected=2
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France MUN S SIL -> BER  | France supports SIL moving to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> MOS       | Germany moves from LVN to MOS.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany STP S LVN -> MOS | Germany supports LVN moving to MOS.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia RUM -> SER        | Russia moves from RUM to SER.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 20] Phase=FALL
+  Proposals:
+    Austria -> Italy, Russia, Turkey
+    England -> France
+    France -> Austria, England, Germany, Russia
+    Germany -> Austria, France, Russia
+    Italy -> (none)
+    Russia -> England, France, Germany, Italy, Turkey
+    Turkey -> Germany, Italy
+  Active deals:
+    England <-> France | 96 actions for England, 91 actions for France
+    France <-> Germany | 84 actions for France, 90 actions for Germany
+    France <-> Russia | 85 actions for France, 99 actions for Russia
+    Germany <-> Russia | 89 actions for Germany, 97 actions for Russia
+  Deal stats:
+    Austria: sent=3, accepted=0, rejected=3
+    England: sent=1, accepted=1, rejected=0
+    France: sent=4, accepted=3, rejected=1
+    Germany: sent=3, accepted=2, rejected=1
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=5, accepted=2, rejected=3
+    Turkey: sent=2, accepted=0, rejected=2
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France MUN S SIL -> BER  | France supports SIL moving to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> STP       | Germany moves from LVN to STP.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY S LVN -> STP | Germany supports LVN moving to STP.
+  * Germany SWE -> DEN       | Germany moves from SWE to DEN.
+  * Germany STP -> FIN       | Germany moves from STP to FIN.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 21] Phase=SPRING
+  Proposals:
+    Austria -> England
+    England -> France
+    France -> Germany
+    Germany -> England, France
+    Italy -> (none)
+    Russia -> (none)
+    Turkey -> (none)
+  Active deals:
+    France <-> Germany | 78 actions for France, 92 actions for Germany
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=1, accepted=0, rejected=1
+    France: sent=1, accepted=1, rejected=0
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=0, accepted=0, rejected=0
+    Russia: sent=0, accepted=0, rejected=0
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France SIL -> WAR        | France moves from SIL to WAR.
+  * France MUN -> RUH        | France moves from MUN to RUH.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany FIN -> STP       | Germany moves from FIN to STP.
+  * Germany LVN S FIN -> STP | Germany supports FIN moving to STP.
+  * Germany BER S KIE -> MUN | Germany supports KIE moving to MUN.
+  * Germany DEN -> KIE       | Germany moves from DEN to KIE.
+  * Germany KIE -> MUN       | Germany moves from KIE to MUN.
+  * Germany NWY S FIN -> STP | Germany supports FIN moving to STP.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TRI S ROM -> VEN   | Italy supports ROM moving to VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia RUM -> SER        | Russia moves from RUM to SER.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 21] (Retreat phase)
+[Retreat] France unit in MUN disbands (no retreat order).
+
+[Round 22] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Turkey
+    England -> Austria, France, Italy, Russia, Turkey
+    France -> Austria, Italy
+    Germany -> Austria, Turkey
+    Italy -> Austria, France, Germany, Russia, Turkey
+    Russia -> England, Germany, Italy
+    Turkey -> Austria, Germany, Russia
+  Active deals:
+    Austria <-> England | 101 actions for Austria, 94 actions for England
+    Austria <-> France | 101 actions for Austria, 67 actions for France
+    Austria <-> Germany | 101 actions for Austria, 100 actions for Germany
+    Austria <-> Turkey | 89 actions for Austria, 62 actions for Turkey
+    England <-> Russia | 94 actions for England, 102 actions for Russia
+    France <-> Italy | 64 actions for France, 70 actions for Italy
+    Germany <-> Turkey | 100 actions for Germany, 71 actions for Turkey
+    Italy <-> Russia | 77 actions for Italy, 102 actions for Russia
+  Deal stats:
+    Austria: sent=4, accepted=4, rejected=0
+    England: sent=5, accepted=2, rejected=3
+    France: sent=2, accepted=2, rejected=0
+    Germany: sent=2, accepted=2, rejected=0
+    Italy: sent=5, accepted=2, rejected=3
+    Russia: sent=3, accepted=2, rejected=1
+    Turkey: sent=3, accepted=2, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> TRI       | Austria moves from BUD to TRI.
+  * Austria SER S BUD -> TRI | Austria supports BUD moving to TRI.
+  * Austria VIE S BUD -> TRI | Austria supports BUD moving to TRI.
+  * Austria GRE -> ION       | Austria moves from GRE to ION.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BER       | Germany moves from MUN to BER.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER -> KIE       | Germany moves from BER to KIE.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TRI -> VEN         | Italy moves from TRI to VEN.
+  * Italy VEN -> ROM         | Italy moves from VEN to ROM.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 22] (Retreat phase)
+[Retreat] Italy unit in TRI disbands (no retreat order).
+
+[Round 23] Phase=SPRING
+  Proposals:
+    Austria -> Turkey
+    England -> France, Germany, Russia, Turkey
+    France -> Italy
+    Germany -> England
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Austria, England, Germany
+    Turkey -> (none)
+  Active deals:
+    England <-> Germany | 89 actions for England, 117 actions for Germany
+    England <-> Russia | 98 actions for England, 101 actions for Russia
+    France <-> Italy | 64 actions for France, 39 actions for Italy
+  Deal stats:
+    Austria: sent=1, accepted=0, rejected=1
+    England: sent=4, accepted=2, rejected=2
+    France: sent=1, accepted=1, rejected=0
+    Germany: sent=1, accepted=1, rejected=0
+    Italy: sent=6, accepted=1, rejected=5
+    Russia: sent=3, accepted=1, rejected=2
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> BUD       | Austria moves from VIE to BUD.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany MUN -> BER       | Germany moves from MUN to BER.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER -> BAL       | Germany moves from BER to BAL.
+  * Germany KIE S BER -> BAL | Germany supports BER moving to BAL.
+  * Germany NWY -> NTH       | Germany moves from NWY to NTH.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP S SWE -> NWY | Germany supports SWE moving to NWY.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> TUN         | Italy moves from TYS to TUN.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 24] Phase=FALL
+  Proposals:
+    Austria -> Germany, Italy, Russia
+    England -> Austria, France, Russia, Turkey
+    France -> Austria, England, Germany, Italy, Russia, Turkey
+    Germany -> Austria, England, France, Italy, Russia, Turkey
+    Italy -> England, France, Russia
+    Russia -> Austria, Germany
+    Turkey -> (none)
+  Active deals:
+    Austria <-> Germany | 120 actions for Austria, 138 actions for Germany
+    Austria <-> Russia | 102 actions for Austria, 86 actions for Russia
+    England <-> France | 97 actions for England, 63 actions for France
+    France <-> Germany | 59 actions for France, 136 actions for Germany
+    France <-> Italy | 62 actions for France, 32 actions for Italy
+    Germany <-> Russia | 128 actions for Germany, 96 actions for Russia
+  Deal stats:
+    Austria: sent=3, accepted=2, rejected=1
+    England: sent=4, accepted=1, rejected=3
+    France: sent=6, accepted=3, rejected=3
+    Germany: sent=6, accepted=3, rejected=3
+    Italy: sent=3, accepted=1, rejected=2
+    Russia: sent=2, accepted=2, rejected=0
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> GRE       | Austria moves from SER to GRE.
+  * Austria VIE -> BUD       | Austria moves from VIE to BUD.
+  * Austria GRE -> ION       | Austria moves from GRE to ION.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France POR -> SPA        | France moves from POR to SPA.
+  * France SPA -> MAR        | France moves from SPA to MAR.
+  * Germany MUN -> BER       | Germany moves from MUN to BER.
+  * Germany BAL S MUN -> BER | Germany supports MUN moving to BER.
+  * Germany LVN -> STP       | Germany moves from LVN to STP.
+  * Germany KIE -> DEN       | Germany moves from KIE to DEN.
+  * Germany NWY S LVN -> STP | Germany supports LVN moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Germany STP -> FIN       | Germany moves from STP to FIN.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TUN H              | Italy holds position in TUN.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia RUM H             | Russia holds position in RUM.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=True
+
+[Round 25] Phase=SPRING
+  Proposals:
+    Austria -> (none)
+    England -> Austria, France
+    France -> Austria, Germany, Italy, Russia
+    Germany -> Austria, France, Russia, Turkey
+    Italy -> Austria, England, France, Germany
+    Russia -> France, Germany, Turkey
+    Turkey -> Russia
+  Active deals:
+    France <-> Germany | 58 actions for France, 137 actions for Germany
+    France <-> Italy | 59 actions for France, 54 actions for Italy
+    France <-> Russia | 59 actions for France, 95 actions for Russia
+    Germany <-> Russia | 128 actions for Germany, 86 actions for Russia
+    Russia <-> Turkey | 92 actions for Russia, 63 actions for Turkey
+  Deal stats:
+    Austria: sent=0, accepted=0, rejected=0
+    England: sent=2, accepted=0, rejected=2
+    France: sent=4, accepted=3, rejected=1
+    Germany: sent=4, accepted=2, rejected=2
+    Italy: sent=4, accepted=1, rejected=3
+    Russia: sent=3, accepted=3, rejected=0
+    Turkey: sent=1, accepted=1, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> GRE       | Austria moves from SER to GRE.
+  * Austria VIE -> BUD       | Austria moves from VIE to BUD.
+  * Austria ION -> AEG       | Austria moves from ION to AEG.
+  * Austria TRI S BUD -> SER | Austria supports BUD moving to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany BAL -> SWE       | Germany moves from BAL to SWE.
+  * Germany LVN -> STP       | Germany moves from LVN to STP.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> KIE       | Germany moves from DEN to KIE.
+  * Germany NWY S LVN -> STP | Germany supports LVN moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Germany STP -> FIN       | Germany moves from STP to FIN.
+  * Italy MAO -> WES         | Italy moves from MAO to WES.
+  * Italy NAP -> ION         | Italy moves from NAP to ION.
+  * Italy ROM -> VEN         | Italy moves from ROM to VEN.
+  * Italy TUN S NAP -> ION   | Italy supports NAP moving to ION.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR S RUM -> GAL  | Russia supports RUM moving to GAL.
+  * Russia RUM -> GAL        | Russia moves from RUM to GAL.
+  * Russia SEV -> MOS        | Russia moves from SEV to MOS.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 25] (Retreat phase)
+[Retreat] Austria unit in ION disbands (no retreat order).
+
+[Round 26] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Italy, Russia, Turkey
+    England -> France, Italy, Russia, Turkey
+    France -> Germany, Italy, Russia
+    Germany -> England, France
+    Italy -> England
+    Russia -> England, Germany, Italy
+    Turkey -> (none)
+  Active deals:
+    England <-> Italy | 93 actions for England, 66 actions for Italy
+    England <-> Russia | 93 actions for England, 97 actions for Russia
+    France <-> Germany | 61 actions for France, 139 actions for Germany
+  Deal stats:
+    Austria: sent=6, accepted=0, rejected=6
+    England: sent=4, accepted=2, rejected=2
+    France: sent=3, accepted=1, rejected=2
+    Germany: sent=2, accepted=1, rejected=1
+    Italy: sent=1, accepted=1, rejected=0
+    Russia: sent=3, accepted=1, rejected=2
+    Turkey: sent=0, accepted=0, rejected=0
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S BUD -> SER | Austria supports BUD moving to SER.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR H            | England holds position in YOR.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France POR -> SPA        | France moves from POR to SPA.
+  * France SPA -> MAR        | France moves from SPA to MAR.
+  * Germany BAL -> DEN       | Germany moves from BAL to DEN.
+  * Germany LVN -> STP       | Germany moves from LVN to STP.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany KIE S BAL -> DEN | Germany supports BAL moving to DEN.
+  * Germany NWY S LVN -> STP | Germany supports LVN moving to STP.
+  * Germany SWE -> FIN       | Germany moves from SWE to FIN.
+  * Germany STP -> FIN       | Germany moves from STP to FIN.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy WES -> MAO         | Italy moves from WES to MAO.
+  * Italy TUN S ION -> TYS   | Italy supports ION moving to TYS.
+  * Italy VEN H              | Italy holds position in VEN.
+  * Russia GAL -> RUM        | Russia moves from GAL to RUM.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR H             | Russia holds position in WAR.
+  * Russia SEV S GAL -> RUM  | Russia supports GAL moving to RUM.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=True
+
+[Round 27] Phase=SPRING
+  Proposals:
+    Austria -> England, Germany, Italy, Russia
+    England -> France
+    France -> (none)
+    Germany -> Russia, Turkey
+    Italy -> Austria, England, France, Russia, Turkey
+    Russia -> (none)
+    Turkey -> Austria
+  Active deals:
+    Austria <-> Italy | 115 actions for Austria, 63 actions for Italy
+  Deal stats:
+    Austria: sent=4, accepted=1, rejected=3
+    England: sent=1, accepted=0, rejected=1
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=2, accepted=0, rejected=2
+    Italy: sent=5, accepted=1, rejected=4
+    Russia: sent=0, accepted=0, rejected=0
+    Turkey: sent=1, accepted=0, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> RUM       | Austria moves from BUD to RUM.
+  * Austria SER S BUD -> RUM | Austria supports BUD moving to RUM.
+  * Austria VIE -> GAL       | Austria moves from VIE to GAL.
+  * Austria GRE -> BUL       | Austria moves from GRE to BUL.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR S DEN -> NTH | England supports DEN moving to NTH.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy MAO H              | Italy holds position in MAO.
+  * Italy TYS H              | Italy holds position in TYS.
+  * Italy TUN H              | Italy holds position in TUN.
+  * Italy VEN H              | Italy holds position in VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia RUM S WAR -> GAL  | Russia supports WAR moving to GAL.
+  * Russia SEV S RUM         | Russia supports RUM to hold.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+[Round 27] (Retreat phase)
+[Retreat] Russia unit in RUM disbands (no retreat order).
+
+[Round 28] Phase=FALL
+  Proposals:
+    Austria -> England, France, Germany, Italy, Russia
+    England -> Austria, France, Italy, Russia, Turkey
+    France -> (none)
+    Germany -> Austria, France, Italy, Russia
+    Italy -> Austria, England, France, Germany, Russia, Turkey
+    Russia -> Italy
+    Turkey -> Austria
+  Active deals:
+    Austria <-> England | 110 actions for Austria, 104 actions for England
+    Austria <-> Germany | 110 actions for Austria, 130 actions for Germany
+    Austria <-> Italy | 109 actions for Austria, 63 actions for Italy
+    England <-> Italy | 103 actions for England, 64 actions for Italy
+    Germany <-> Italy | 130 actions for Germany, 66 actions for Italy
+    Italy <-> Russia | 66 actions for Italy, 63 actions for Russia
+  Deal stats:
+    Austria: sent=5, accepted=3, rejected=2
+    England: sent=5, accepted=2, rejected=3
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=4, accepted=2, rejected=2
+    Italy: sent=6, accepted=4, rejected=2
+    Russia: sent=1, accepted=1, rejected=0
+    Turkey: sent=1, accepted=0, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria RUM S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI -> SER       | Austria moves from TRI to SER.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR S DEN -> NTH | England supports DEN moving to NTH.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR -> SPA        | France moves from MAR to SPA.
+  * France POR -> SPA        | France moves from POR to SPA.
+  * France SPA -> MAR        | France moves from SPA to MAR.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TUN S TYS -> ION   | Italy supports TYS moving to ION.
+  * Italy VEN -> TRI         | Italy moves from VEN to TRI.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR H             | Russia holds position in WAR.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SEV        | Turkey moves from ARM to SEV.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=True
+
+[Round 29] Phase=SPRING
+  Proposals:
+    Austria -> England, Germany
+    England -> France, Russia
+    France -> (none)
+    Germany -> England, France, Italy, Russia
+    Italy -> Austria
+    Russia -> Austria, Italy
+    Turkey -> Austria
+  No mutual deals this round.
+  Deal stats:
+    Austria: sent=2, accepted=0, rejected=2
+    England: sent=2, accepted=0, rejected=2
+    France: sent=0, accepted=0, rejected=0
+    Germany: sent=4, accepted=0, rejected=4
+    Italy: sent=1, accepted=0, rejected=1
+    Russia: sent=2, accepted=0, rejected=2
+    Turkey: sent=1, accepted=0, rejected=1
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria RUM S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> HOL       | England moves from NTH to HOL.
+  * England YOR -> LVP       | England moves from YOR to LVP.
+  * England HOL -> KIE       | England moves from HOL to KIE.
+  * England LVP -> YOR       | England moves from LVP to YOR.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> WAR       | Germany moves from LVN to WAR.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP -> MOS       | Germany moves from STP to MOS.
+  * Italy ION -> TYS         | Italy moves from ION to TYS.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TUN S ION -> TYS   | Italy supports ION moving to TYS.
+  * Italy VEN H              | Italy holds position in VEN.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia WAR -> GAL        | Russia moves from WAR to GAL.
+  * Russia SEV -> RUM        | Russia moves from SEV to RUM.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey ARM -> SMY        | Turkey moves from ARM to SMY.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+[Round 30] Phase=FALL
+  Proposals:
+    Austria -> (none)
+    England -> France
+    France -> Austria, Germany, Russia
+    Germany -> (none)
+    Italy -> Austria, England, France, Turkey
+    Russia -> Austria, France, Germany
+    Turkey -> Austria, England, Germany
+  Active deals:
+    France <-> Russia | 58 actions for France, 66 actions for Russia
+  Deal stats:
+    Austria: sent=0, accepted=0, rejected=0
+    England: sent=1, accepted=0, rejected=1
+    France: sent=3, accepted=1, rejected=2
+    Germany: sent=0, accepted=0, rejected=0
+    Italy: sent=4, accepted=0, rejected=4
+    Russia: sent=3, accepted=1, rejected=2
+    Turkey: sent=3, accepted=0, rejected=3
+  Orders:
+  Order                      | Action
+-----------------------------+-------
+  * Austria BUD -> SER       | Austria moves from BUD to SER.
+  * Austria SER -> BUL       | Austria moves from SER to BUL.
+  * Austria VIE -> TRI       | Austria moves from VIE to TRI.
+  * Austria GRE S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria RUM S SER -> BUL | Austria supports SER moving to BUL.
+  * Austria TRI -> VEN       | Austria moves from TRI to VEN.
+  * England ENG -> BRE       | England moves from ENG to BRE.
+  * England NTH -> ENG       | England moves from NTH to ENG.
+  * England YOR S DEN -> NTH | England supports DEN moving to NTH.
+  * England HOL -> NTH       | England moves from HOL to NTH.
+  * England LVP H            | England holds position in LVP.
+  * France SIL -> BER        | France moves from SIL to BER.
+  * France BRE H             | France holds position in BRE.
+  * France MAR H             | France holds position in MAR.
+  * France POR H             | France holds position in POR.
+  * France SPA H             | France holds position in SPA.
+  * Germany LVN -> MOS       | Germany moves from LVN to MOS.
+  * Germany BER H            | Germany holds position in BER.
+  * Germany DEN -> SWE       | Germany moves from DEN to SWE.
+  * Germany KIE S BER        | Germany supports BER to hold.
+  * Germany NWY -> STP       | Germany moves from NWY to STP.
+  * Germany SWE -> NWY       | Germany moves from SWE to NWY.
+  * Germany STP S LVN -> MOS | Germany supports LVN moving to MOS.
+  * Italy MAO -> POR         | Italy moves from MAO to POR.
+  * Italy TYS -> ION         | Italy moves from TYS to ION.
+  * Italy TUN S TYS -> ION   | Italy supports TYS moving to ION.
+  * Italy VEN H              | Italy holds position in VEN.
+  * Russia GAL -> WAR        | Russia moves from GAL to WAR.
+  * Russia MOS -> STP        | Russia moves from MOS to STP.
+  * Russia SEV -> MOS        | Russia moves from SEV to MOS.
+  * Turkey AEG S CON -> BUL  | Turkey supports CON moving to BUL.
+  * Turkey CON -> BUL        | Turkey moves from CON to BUL.
+  * Turkey SMY -> ARM        | Turkey moves from SMY to ARM.
+  * Turkey BUL H             | Turkey holds position in BUL.
+  Resolution: winner=None, auto_disbands=False, auto_builds=False
+
+Final unit counts:
+  Austria: 6
+  England: 5
+  France: 5
+  Germany: 7
+  Italy: 4
+  Russia: 3
+  Turkey: 3
