@@ -11,7 +11,9 @@ from ..types import Order, Power
 from .base import Agent
 
 from policytraining.run_sl import make_sl_policy
-from ..value_estimation import ValueFn, save, sl_state_value
+from ..batched_inference import run_batched_values
+from ..value_estimation import BatchValueFn, ValueFn, batch_sl_state_value, save, sl_state_value
+from ..timing import timer
 
 # These are the DeepMind-style helpers you are (or will be) writing.
 # They should live under diplomacy/deepmind/ and map your GameState to DM obs/actions.
@@ -39,6 +41,7 @@ class DeepMindSlAgent(Agent):
         action_rollouts: int = 4,
         value_fn: ValueFn = sl_state_value,
         value_kwargs: Optional[Dict[str, Any]] = None,
+        batch_value_fn: Optional[BatchValueFn] = None,
     ):
         super().__init__(power)
         self._policy = make_sl_policy(sl_params_path, rng_seed=rng_seed)
@@ -54,6 +57,16 @@ class DeepMindSlAgent(Agent):
         if value_fn is sl_state_value and "policy" not in value_kwargs:
             value_kwargs = {**value_kwargs, "policy": self._policy}
         self._value_kwargs = value_kwargs
+        if batch_value_fn is None and value_fn is sl_state_value:
+            def _default_batch(states: Sequence[GameState], pow: Power) -> Sequence[float]:
+                return batch_sl_state_value(states, pow, policy=self._policy)
+
+            batch_value_fn = _default_batch
+        self._batch_value_fn = (
+            (lambda states, pow: run_batched_values(batch_value_fn, states, pow))
+            if batch_value_fn is not None
+            else None
+        )
 
     # ------------------------------------------------------------------------
     # Public planning API used by simulation.run_rounds_with_agents
@@ -151,15 +164,17 @@ class DeepMindSlAgent(Agent):
 
         for _ in range(K):
             # 2) Sample one joint-action profile; take my action as the candidate.
-            joint_actions_array, _ = self._policy.actions(
-                slots_list=slots_list,
-                observation=observation,
-                legal_actions=legal_actions,
-            )
+            with timer("model_inference_policy"):
+                joint_actions_array, _ = self._policy.actions(
+                    slots_list=slots_list,
+                    observation=observation,
+                    legal_actions=legal_actions,
+                )
             my_candidate_indices = list(joint_actions_array[my_index])
 
             # 3) Evaluate this candidate with N Monte-Carlo rollouts.
             total_v = 0.0
+            next_states: List[GameState] = []
 
             for _ in range(N):
                 # Build legal_actions for rollout:
@@ -171,11 +186,12 @@ class DeepMindSlAgent(Agent):
                 )
 
                 # Resample other powers subject to the restriction on me.
-                rollout_actions_array, _ = self._policy.actions(
-                    slots_list=slots_list,
-                    observation=observation,
-                    legal_actions=rollout_legal_actions,
-                )
+                with timer("model_inference_policy"):
+                    rollout_actions_array, _ = self._policy.actions(
+                        slots_list=slots_list,
+                        observation=observation,
+                        legal_actions=rollout_legal_actions,
+                    )
 
                 # Convert to mapping Power -> List[int]
                 joint_actions: Dict[Power, List[int]] = {}
@@ -184,8 +200,14 @@ class DeepMindSlAgent(Agent):
 
                 # Step the state and evaluate my value at the next state.
                 next_state = self._step_state(state, joint_actions)
-                v = self._state_value(next_state, my_power)
-                total_v += v
+                next_states.append(next_state)
+
+            if self._batch_value_fn is not None:
+                values = self._batch_value_fn(next_states, my_power)
+                total_v = float(sum(values))
+            else:
+                for next_state in next_states:
+                    total_v += self._state_value(next_state, my_power)
 
             avg_v = total_v / float(N)
 
@@ -221,11 +243,12 @@ class _SlPolicyAgent(Agent):
             return []
 
         slots_list: Sequence[int] = list(range(len(powers)))
-        actions, _ = self._policy.actions(
-            slots_list=slots_list,
-            observation=observation,
-            legal_actions=legal_actions,
-        )
+        with timer("model_inference_policy"):
+            actions, _ = self._policy.actions(
+                slots_list=slots_list,
+                observation=observation,
+                legal_actions=legal_actions,
+            )
         action_indices = list(actions[my_index])
         return decode_actions_to_orders(state=state, power=self.power, action_indices=action_indices)
 
@@ -253,11 +276,12 @@ class DeepMindSaveAgent(DeepMindSlAgent):
         rollout_agents = self._build_rollout_agents(state)
 
         for _ in range(K):
-            joint_actions_array, _ = self._policy.actions(
-                slots_list=slots_list,
-                observation=observation,
-                legal_actions=legal_actions,
-            )
+            with timer("model_inference_policy"):
+                joint_actions_array, _ = self._policy.actions(
+                    slots_list=slots_list,
+                    observation=observation,
+                    legal_actions=legal_actions,
+                )
             my_candidate_indices = list(joint_actions_array[my_index])
             candidate_orders = decode_actions_to_orders(
                 state=state,
@@ -274,6 +298,7 @@ class DeepMindSaveAgent(DeepMindSlAgent):
                 horizon=1,
                 value_fn=self._value_fn,
                 value_kwargs=self._value_kwargs,
+                batch_value_fn=self._batch_value_fn,
             )
 
             if score > best_value:
@@ -309,7 +334,8 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
                 self._contracts,
             )
             legal_by_power.append(np.asarray(allowed, dtype=np.int64))
-        actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=legal_by_power)
+        with timer("model_inference_policy"):
+            actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=legal_by_power)
         return decode_actions_to_orders(
             state=state,
             power=self.power,
@@ -331,7 +357,8 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
             for p in powers:
                 allowed = restricted.get(p) if restricted and p in restricted else legal_actions[p]
                 joint_legal.append(np.asarray(allowed, dtype=np.int64))
-            actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=joint_legal)
+            with timer("model_inference_policy"):
+                actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=joint_legal)
             return list(actions[idx])
         return fn
 
@@ -347,20 +374,22 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
         # RSS proposals -> contracts
         legal_map = {p: list(raw_legal[i]) for i, p in enumerate(powers)}
         policy_fns = {p: self._policy_fn(powers, i) for i, p in enumerate(powers)}
-        proposals = {
-            p: run_rss_for_power(
-                state=state,
-                power=p,
-                powers=powers,
-                legal_actions=legal_map,
-                policy_fns=policy_fns,
-                value_fn=lambda s, pow=p: self._state_value(s, pow),
-                step_fn=self._step_state,
-                rollouts=self._rss_rollouts,
-                tom_depth=self._tom_depth,
-            )
-            for p in powers
-        }
+        with timer("negotiation_rss"):
+            proposals = {
+                p: run_rss_for_power(
+                    state=state,
+                    power=p,
+                    powers=powers,
+                    legal_actions=legal_map,
+                    policy_fns=policy_fns,
+                    value_fn=lambda s, pow=p: self._state_value(s, pow),
+                    step_fn=self._step_state,
+                    rollouts=self._rss_rollouts,
+                    tom_depth=self._tom_depth,
+                    batch_value_fn=self._batch_value_fn,
+                )
+                for p in powers
+            }
         contracts = compute_active_contracts(state, powers, legal_map, proposals)
 
         # Restrict legal actions under contracts
@@ -379,11 +408,12 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
         best_val, best_candidate = float("-inf"), None
         slots = list(range(len(powers)))
         for _ in range(K):
-            joint_actions, _ = self._policy.actions(
-                slots_list=slots,
-                observation=observation,
-                legal_actions=restricted,
-            )
+            with timer("model_inference_policy"):
+                joint_actions, _ = self._policy.actions(
+                    slots_list=slots,
+                    observation=observation,
+                    legal_actions=restricted,
+                )
             my_candidate = list(joint_actions[my_index])
             candidate_orders = decode_actions_to_orders(state, self.power, my_candidate)
             score = save(
@@ -395,6 +425,7 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 horizon=1,
                 value_fn=self._value_fn,
                 value_kwargs=self._value_kwargs,
+                batch_value_fn=self._batch_value_fn,
             )
             if score > best_val:
                 best_val, best_candidate = score, my_candidate
@@ -428,7 +459,8 @@ class _ContractAwareSlPolicyAgent(_SlPolicyAgent):
                 self._contracts,
             )
             legal_by_power.append(np.asarray(list(allowed), dtype=np.int64))
-        actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=legal_by_power)
+        with timer("model_inference_policy"):
+            actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=legal_by_power)
         return decode_actions_to_orders(
             state=state,
             power=self.power,
@@ -450,7 +482,8 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
             for p in powers:
                 allowed = restricted.get(p) if restricted and p in restricted else legal_actions[p]
                 joint_legal.append(np.asarray(allowed, dtype=np.int64))
-            actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=joint_legal)
+            with timer("model_inference_policy"):
+                actions, _ = self._policy.actions(slots_list=slots, observation=obs, legal_actions=joint_legal)
             return list(actions[idx])
         return fn
 
@@ -466,20 +499,22 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
         # RSS proposals -> contracts
         legal_map = {p: list(raw_legal[i]) for i, p in enumerate(powers)}
         policy_fns = {p: self._policy_fn(powers, i) for i, p in enumerate(powers)}
-        proposals = {
-            p: run_rss_for_power(
-                state=state,
-                power=p,
-                powers=powers,
-                legal_actions=legal_map,
-                policy_fns=policy_fns,
-                value_fn=lambda s, pow=p: self._state_value(s, pow),
-                step_fn=self._step_state,
-                rollouts=self._rss_rollouts,
-                tom_depth=self._tom_depth,
-            )
-            for p in powers
-        }
+        with timer("negotiation_rss"):
+            proposals = {
+                p: run_rss_for_power(
+                    state=state,
+                    power=p,
+                    powers=powers,
+                    legal_actions=legal_map,
+                    policy_fns=policy_fns,
+                    value_fn=lambda s, pow=p: self._state_value(s, pow),
+                    step_fn=self._step_state,
+                    rollouts=self._rss_rollouts,
+                    tom_depth=self._tom_depth,
+                    batch_value_fn=self._batch_value_fn,
+                )
+                for p in powers
+            }
         contracts = compute_active_contracts(state, powers, legal_map, proposals)
 
         # Restrict legal actions under contracts
@@ -498,11 +533,12 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
         best_val, best_candidate = float("-inf"), None
         slots = list(range(len(powers)))
         for _ in range(K):
-            joint_actions, _ = self._policy.actions(
-                slots_list=slots,
-                observation=observation,
-                legal_actions=restricted,
-            )
+            with timer("model_inference_policy"):
+                joint_actions, _ = self._policy.actions(
+                    slots_list=slots,
+                    observation=observation,
+                    legal_actions=restricted,
+                )
             my_candidate = list(joint_actions[my_index])
             candidate_orders = decode_actions_to_orders(state, self.power, my_candidate)
             score = save(
@@ -514,6 +550,7 @@ class DeepMindNegotiatorAgent(DeepMindSaveAgent):
                 horizon=1,
                 value_fn=self._value_fn,
                 value_kwargs=self._value_kwargs,
+                batch_value_fn=self._batch_value_fn,
             )
             if score > best_val:
                 best_val, best_candidate = score, my_candidate

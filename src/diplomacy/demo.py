@@ -25,7 +25,9 @@ from .agents.sl_agent import DeepMindSlAgent, DeepMindSaveAgent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
 from .orders import hold, move, support_hold, support_move
-from .value_estimation import heuristic_state_value, sl_state_value
+from .batched_inference import run_batched_values
+from .value_estimation import batch_sl_state_value, heuristic_state_value, sl_state_value
+from .timing import get_timing_recorder, timer
 from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, UnitType, describe_order
@@ -86,11 +88,12 @@ def _policy_fn_for_agent(agent: Agent, powers: List[Power]) -> Callable:
             joint_legal.append(np.asarray(allowed, dtype=np.int64))
 
         slots = list(range(len(powers)))
-        actions, _ = policy.actions(
-            slots_list=slots,
-            observation=observation,
-            legal_actions=joint_legal,
-        )
+        with timer("model_inference_policy"):
+            actions, _ = policy.actions(
+                slots_list=slots,
+                observation=observation,
+                legal_actions=joint_legal,
+            )
         return list(actions[powers.index(power)])
 
     return policy_fn
@@ -116,11 +119,12 @@ def _policy_fn_from_policy(policy, powers: List[Power]) -> Callable:
             joint_legal.append(np.asarray(allowed, dtype=np.int64))
 
         slots = list(range(len(powers)))
-        actions, _ = policy.actions(
-            slots_list=slots,
-            observation=observation,
-            legal_actions=joint_legal,
-        )
+        with timer("model_inference_policy"):
+            actions, _ = policy.actions(
+                slots_list=slots,
+                observation=observation,
+                legal_actions=joint_legal,
+            )
         return list(actions[powers.index(power)])
 
     return policy_fn
@@ -169,6 +173,13 @@ def _compute_negotiation_deals(
             return 0.0
         return sl_state_value(state_val, power_val, policy=policy)
 
+    def batch_value_fn(states: List[GameState], power_val: Power) -> List[float]:
+        policy = getattr(agents.get(power_val), "_policy", None) or primary_policy
+        if policy is None:
+            return [0.0 for _ in states]
+        base_fn = lambda batch, pow: batch_sl_state_value(batch, pow, policy=policy)  # noqa: E731
+        return run_batched_values(base_fn, states, power_val)
+
     for power in negotiators:
         proposals[power] = run_rss_for_power(
             state=state,
@@ -177,6 +188,7 @@ def _compute_negotiation_deals(
             legal_actions=legal_by_power,
             policy_fns=policy_fns,
             value_fn=value_fn,
+            batch_value_fn=batch_value_fn,
             step_fn=_step_state_from_actions,
             rollouts=rss_rollouts,
         )
@@ -768,35 +780,47 @@ def run_standard_board_br_vs_neg(
     states: List[GameState] = [state]
     titles: List[str] = ["Initial State"]
     orders_history: List[List[Order]] = []
+    recorder = get_timing_recorder()
 
     while movement_round < rounds and (not stop_on_winner or state.winner is None):
         if state.phase.name.endswith("RETREAT"):
+            if recorder is not None:
+                recorder.start_round(movement_round)
             print(f"[Round {movement_round}] (Retreat phase)")
             retreat_orders: List[Order] = []
-            for power, agent in agents.items():
-                if not any(u.power == power for u in state.pending_retreats.values()):
-                    continue
-                retreat_orders.extend(agent.issue_orders(state))
-            state, resolution = Adjudicator(state).resolve(
-                retreat_orders,
-                build_callback=collect_build_choices,
-            )
+            with timer("planning"):
+                for power, agent in agents.items():
+                    if not any(u.power == power for u in state.pending_retreats.values()):
+                        continue
+                    retreat_orders.extend(agent.issue_orders(state))
+            with timer("adjudication"):
+                state, resolution = Adjudicator(state).resolve(
+                    retreat_orders,
+                    build_callback=collect_build_choices,
+                )
             states.append(state)
             titles.append(f"Round {movement_round} (Retreat)")
             orders_history.append(retreat_orders)
             if stop_on_winner and resolution.winner is not None:
+                if recorder is not None:
+                    recorder.end_round()
                 break
+            if recorder is not None:
+                recorder.end_round()
             continue
 
         movement_round += 1
+        if recorder is not None:
+            recorder.start_round(movement_round)
         print(f"\n[Round {movement_round}] Phase={state.phase.name}")
 
-        proposals, contracts = _compute_negotiation_deals(
-            state=state,
-            agents=agents,
-            negotiation_powers=negotiation_powers,
-            rss_rollouts=rss_rollouts,
-        )
+        with timer("negotiation_rss"):
+            proposals, contracts = _compute_negotiation_deals(
+                state=state,
+                agents=agents,
+                negotiation_powers=negotiation_powers,
+                rss_rollouts=rss_rollouts,
+            )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
         if proposals:
@@ -836,21 +860,23 @@ def run_standard_board_br_vs_neg(
                 )
 
         round_orders: List[Order] = []
-        for power, agent in agents.items():
-            if power not in state.powers:
-                continue
-            agent_orders = agent.issue_orders(state)
-            round_orders.extend(agent_orders)
+        with timer("planning"):
+            for power, agent in agents.items():
+                if power not in state.powers:
+                    continue
+                agent_orders = agent.issue_orders(state)
+                round_orders.extend(agent_orders)
 
         orders_history.append(list(round_orders))
         print("  Orders:")
         for line in _format_orders_with_actions(round_orders):
             print(line)
 
-        state, resolution = Adjudicator(state).resolve(
-            round_orders,
-            build_callback=collect_build_choices,
-        )
+        with timer("adjudication"):
+            state, resolution = Adjudicator(state).resolve(
+                round_orders,
+                build_callback=collect_build_choices,
+            )
         states.append(state)
         titles.append(f"Round {movement_round}")
         print(
@@ -972,35 +998,47 @@ def run_standard_board_mixed_tom_demo(
     states: List[GameState] = [state]
     titles: List[str] = ["Initial State"]
     orders_history: List[List[Order]] = []
+    recorder = get_timing_recorder()
 
     while movement_round < rounds and (not stop_on_winner or state.winner is None):
         if state.phase.name.endswith("RETREAT"):
+            if recorder is not None:
+                recorder.start_round(movement_round)
             print(f"[Round {movement_round}] (Retreat phase)")
             retreat_orders: List[Order] = []
-            for power, agent in agents.items():
-                if not any(u.power == power for u in state.pending_retreats.values()):
-                    continue
-                retreat_orders.extend(agent.issue_orders(state))
-            state, resolution = Adjudicator(state).resolve(
-                retreat_orders,
-                build_callback=collect_build_choices,
-            )
+            with timer("planning"):
+                for power, agent in agents.items():
+                    if not any(u.power == power for u in state.pending_retreats.values()):
+                        continue
+                    retreat_orders.extend(agent.issue_orders(state))
+            with timer("adjudication"):
+                state, resolution = Adjudicator(state).resolve(
+                    retreat_orders,
+                    build_callback=collect_build_choices,
+                )
             states.append(state)
             titles.append(f"Round {movement_round} (Retreat)")
             orders_history.append(retreat_orders)
             if stop_on_winner and resolution.winner is not None:
+                if recorder is not None:
+                    recorder.end_round()
                 break
+            if recorder is not None:
+                recorder.end_round()
             continue
 
         movement_round += 1
+        if recorder is not None:
+            recorder.start_round(movement_round)
         print(f"\n[Round {movement_round}] Phase={state.phase.name}")
 
-        proposals, contracts = _compute_negotiation_deals(
-            state=state,
-            agents=agents,
-            negotiation_powers=negotiation_powers,
-            rss_rollouts=rss_rollouts,
-        )
+        with timer("negotiation_rss"):
+            proposals, contracts = _compute_negotiation_deals(
+                state=state,
+                agents=agents,
+                negotiation_powers=negotiation_powers,
+                rss_rollouts=rss_rollouts,
+            )
         sent_counts = {power: 0 for power in negotiation_powers}
         accepted_counts = {power: 0 for power in negotiation_powers}
         if proposals:
@@ -1040,21 +1078,23 @@ def run_standard_board_mixed_tom_demo(
                 )
 
         round_orders: List[Order] = []
-        for power, agent in agents.items():
-            if power not in state.powers:
-                continue
-            agent_orders = agent.issue_orders(state)
-            round_orders.extend(agent_orders)
+        with timer("planning"):
+            for power, agent in agents.items():
+                if power not in state.powers:
+                    continue
+                agent_orders = agent.issue_orders(state)
+                round_orders.extend(agent_orders)
 
         orders_history.append(list(round_orders))
         print("  Orders:")
         for line in _format_orders_with_actions(round_orders):
             print(line)
 
-        state, resolution = Adjudicator(state).resolve(
-            round_orders,
-            build_callback=collect_build_choices,
-        )
+        with timer("adjudication"):
+            state, resolution = Adjudicator(state).resolve(
+                round_orders,
+                build_callback=collect_build_choices,
+            )
         states.append(state)
         titles.append(f"Round {movement_round}")
         print(
@@ -1064,7 +1104,11 @@ def run_standard_board_mixed_tom_demo(
         )
         if stop_on_winner and resolution.winner is not None:
             print(f"  Winner detected: {resolution.winner}")
+            if recorder is not None:
+                recorder.end_round()
             break
+        if recorder is not None:
+            recorder.end_round()
 
     final_state = states[-1]
     winner = final_state.winner

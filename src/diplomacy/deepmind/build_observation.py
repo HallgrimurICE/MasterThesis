@@ -8,6 +8,7 @@ from ..state import GameState
 from ..types import Phase, Power, UnitType
 
 from .observation import observation_utils, province_order
+from ..timing import timer
 
 # Canonical power ordering used by the DeepMind agents.
 _DM_POWER_ORDER = (
@@ -135,20 +136,20 @@ def build_observation(
     last_actions: Sequence[int] | None = None,
 ) -> observation_utils.Observation:
     """Convert the engine GameState into DeepMind's Observation tuple."""
+    with timer("observation_build"):
+        board = np.zeros(
+            observation_utils.OBSERVATION_BOARD_SHAPE, dtype=np.int8
+        )
+        _encode_units(board, state)
+        _encode_supply_centres(board, state.supply_center_control)
 
-    board = np.zeros(
-        observation_utils.OBSERVATION_BOARD_SHAPE, dtype=np.int8
-    )
-    _encode_units(board, state)
-    _encode_supply_centres(board, state.supply_center_control)
+        season = _phase_to_season(state.phase)
+        build_numbers = _build_numbers(state)
+        last_actions_arr = np.asarray(last_actions or (), dtype=np.int64)
 
-    season = _phase_to_season(state.phase)
-    build_numbers = _build_numbers(state)
-    last_actions_arr = np.asarray(last_actions or (), dtype=np.int64)
-
-    return observation_utils.Observation(
-        season=season,
-        board=board,
-        build_numbers=build_numbers,
-        last_actions=last_actions_arr,
-    )
+        return observation_utils.Observation(
+            season=season,
+            board=board,
+            build_numbers=build_numbers,
+            last_actions=last_actions_arr,
+        )

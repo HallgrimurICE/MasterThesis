@@ -9,9 +9,11 @@ from .types import Order, Power
 from .agents.base import Agent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
+from .timing import timer
 from policytraining.run_sl import make_sl_policy
 
 ValueFn = Callable[[GameState, Power], float]
+BatchValueFn = Callable[[Sequence[GameState], Power], Sequence[float]]
 OrderMap = Mapping[Power, Iterable[Order]]
 
 
@@ -41,11 +43,12 @@ def sl_state_value(
 
     powers: List[Power] = sorted(state.powers, key=str)
     slots_list: Sequence[int] = list(range(len(powers)))
-    _, info = policy.actions(
-        slots_list=slots_list,
-        observation=observation,
-        legal_actions=list(legal_actions),
-    )
+    with timer("model_inference_value"):
+        _, info = policy.actions(
+            slots_list=slots_list,
+            observation=observation,
+            legal_actions=list(legal_actions),
+        )
 
     values = info.get("values") if isinstance(info, dict) else None
     if values is None:
@@ -54,6 +57,27 @@ def sl_state_value(
         return float(values[powers.index(power)])
     except (ValueError, IndexError, TypeError):
         return 0.0
+
+
+def batch_sl_state_value(
+    states: Sequence[GameState],
+    power: Power,
+    *,
+    policy=None,
+    weights_path: Optional[str] = None,
+    rng_seed: int = 0,
+) -> Sequence[float]:
+    """Batch-friendly wrapper around ``sl_state_value`` (falls back to per-state calls)."""
+    return [
+        sl_state_value(
+            state,
+            power,
+            policy=policy,
+            weights_path=weights_path,
+            rng_seed=rng_seed,
+        )
+        for state in states
+    ]
 
 
 def heuristic_state_value(
@@ -96,6 +120,7 @@ def rollout_value(
     horizon: int = 1,
     value_fn: ValueFn = sl_state_value,
     value_kwargs: Optional[dict] = None,
+    batch_value_fn: Optional[BatchValueFn] = None,
     rng: Optional[random.Random] = None,
 ) -> float:
     """Average value over rollouts with some powers' orders fixed in the first round."""
@@ -103,6 +128,7 @@ def rollout_value(
     rng = rng or random.Random()
     value_kwargs = value_kwargs or {}
     total = 0.0
+    final_states: List[GameState] = []
 
     for _ in range(n_rollouts):
         state = _copy_state(initial_state)
@@ -134,9 +160,16 @@ def rollout_value(
             horizon,
             stop_on_winner=False,
         )
-        total += value_fn(states[-1], focal_power, **value_kwargs)
+        final_states.append(states[-1])
 
-    return total / n_rollouts
+    if batch_value_fn is not None:
+        values = batch_value_fn(final_states, focal_power)
+        total = float(sum(values))
+    else:
+        for final_state in final_states:
+            total += value_fn(final_state, focal_power, **value_kwargs)
+
+    return total / max(1, n_rollouts)
 
 
 def save(
@@ -149,6 +182,7 @@ def save(
     horizon: int = 1,
     value_fn: ValueFn = sl_state_value,
     value_kwargs: Optional[dict] = None,
+    batch_value_fn: Optional[BatchValueFn] = None,
     rng: Optional[random.Random] = None,
 ) -> float:
     return rollout_value(
@@ -160,6 +194,7 @@ def save(
         horizon=horizon,
         value_fn=value_fn,
         value_kwargs=value_kwargs,
+        batch_value_fn=batch_value_fn,
         rng=rng,
     )
 
@@ -176,6 +211,7 @@ def stave(
     horizon: int = 1,
     value_fn: ValueFn = sl_state_value,
     value_kwargs: Optional[dict] = None,
+    batch_value_fn: Optional[BatchValueFn] = None,
     rng: Optional[random.Random] = None,
 ) -> float:
     return rollout_value(
@@ -187,6 +223,7 @@ def stave(
         horizon=horizon,
         value_fn=value_fn,
         value_kwargs=value_kwargs,
+        batch_value_fn=batch_value_fn,
         rng=rng,
     )
 
@@ -209,6 +246,7 @@ def sve(
     horizon: int = 1,
     value_fn: ValueFn = sl_state_value,
     value_kwargs: Optional[dict] = None,
+    batch_value_fn: Optional[BatchValueFn] = None,
     rng: Optional[random.Random] = None,
 ) -> float:
     fixed = {
@@ -224,11 +262,14 @@ def sve(
         horizon=horizon,
         value_fn=value_fn,
         value_kwargs=value_kwargs,
+        batch_value_fn=batch_value_fn,
         rng=rng,
     )
 
 
 __all__ = [
+    "BatchValueFn",
+    "batch_sl_state_value",
     "sl_state_value",
     "heuristic_state_value",
     "rollout_value",

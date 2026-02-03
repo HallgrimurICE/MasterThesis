@@ -8,7 +8,7 @@ from ..state import GameState
 from ..types import Power
 from .contracts import Contract
 from .peace import build_peace_contract
-from .simulation import PolicyFn, StepFn, ValueFn, estimate_expected_values
+from .simulation import BatchValueFn, PolicyFn, StepFn, ValueFn, estimate_expected_values
 
 
 def run_rss_for_power(
@@ -22,6 +22,7 @@ def run_rss_for_power(
     *,
     rollouts: int = 4,
     tom_depth: int = 1,
+    batch_value_fn: Optional[BatchValueFn] = None,
     value_cache: Optional[MutableMapping[Tuple[Tuple[Any, ...], Tuple[Tuple[Power, Tuple[int, ...]], ...]], Mapping[Power, float]]] = None,
     state_signature: Optional[Tuple[Any, ...]] = None,
 ) -> Set[Power]:
@@ -40,6 +41,7 @@ def run_rss_for_power(
         step_fn=step_fn,
         legal_actions=legal_actions,
         rollouts=rollouts,
+        batch_value_fn=batch_value_fn,
         value_cache=value_cache,
         state_signature=state_signature,
         restricted_actions=None,
@@ -70,6 +72,7 @@ def run_rss_for_power(
             legal_actions=legal_actions,
             restricted_actions=restrictions,
             rollouts=rollouts,
+            batch_value_fn=batch_value_fn,
             value_cache=value_cache,
             state_signature=state_signature,
         )
@@ -98,6 +101,7 @@ def _cached_expected_values(
     legal_actions: Mapping[Power, Sequence[int]],
     restricted_actions: Optional[Mapping[Power, Sequence[int]]],
     rollouts: int,
+    batch_value_fn: Optional[BatchValueFn],
     value_cache: Optional[MutableMapping[Tuple[Tuple[Any, ...], Tuple[Tuple[Power, Tuple[int, ...]], ...]], Mapping[Power, float]]],
     state_signature: Optional[Tuple[Any, ...]],
 ) -> Mapping[Power, float]:
@@ -114,6 +118,7 @@ def _cached_expected_values(
         legal_actions=legal_actions,
         restricted_actions=restricted_actions,
         rollouts=rollouts,
+        batch_value_fn=batch_value_fn,
     )
     if value_cache is not None:
         value_cache[signature] = values
