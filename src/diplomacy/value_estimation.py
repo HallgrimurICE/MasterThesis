@@ -56,6 +56,31 @@ def sl_state_value(
         return 0.0
 
 
+def heuristic_state_value(
+    state: GameState,
+    power: Power,
+    *,
+    center_weight: float = 1.0,
+    unit_weight: float = 0.25,
+    threatened_weight: float = 0.5,
+) -> float:
+    """Lightweight heuristic value function for faster rollouts.
+
+    Scores the board based on controlled supply centers, unit count,
+    and threatened owned centers. The weights can be tuned per experiment.
+    """
+    centers_controlled = sum(
+        1 for controller in state.supply_center_control.values() if controller == power
+    )
+    unit_count = sum(1 for unit in state.units.values() if unit.power == power)
+    threatened = state.centers_threatened(power)
+    return (
+        center_weight * centers_controlled
+        + unit_weight * unit_count
+        - threatened_weight * threatened
+    )
+
+
 def _copy_state(state: GameState) -> GameState:
     # Replace with your preferred cloning method if different.
     return state.copy()
@@ -205,6 +230,7 @@ def sve(
 
 __all__ = [
     "sl_state_value",
+    "heuristic_state_value",
     "rollout_value",
     "save",
     "stave",

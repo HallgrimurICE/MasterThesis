@@ -25,7 +25,7 @@ from .agents.sl_agent import DeepMindSlAgent, DeepMindSaveAgent
 from .deepmind.build_observation import build_observation
 from .deepmind.actions import legal_actions_from_state, decode_actions_to_orders
 from .orders import hold, move, support_hold, support_move
-from .value_estimation import sl_state_value
+from .value_estimation import heuristic_state_value, sl_state_value
 from .simulation import run_rounds_with_agents
 from .state import GameState
 from .types import Order, Power, Unit, UnitType, describe_order
@@ -94,6 +94,10 @@ def _policy_fn_for_agent(agent: Agent, powers: List[Power]) -> Callable:
         return list(actions[powers.index(power)])
 
     return policy_fn
+
+
+def _resolve_value_fn(use_heuristic_value: bool):
+    return heuristic_state_value if use_heuristic_value else sl_state_value
 
 
 def _policy_fn_from_policy(policy, powers: List[Power]) -> Callable:
@@ -685,6 +689,7 @@ def run_standard_board_br_vs_neg(
     tom_depth: int = 2,
     negotiation_powers: Optional[List[Power]] = None,
     baseline_powers: Optional[List[Power]] = None,
+    use_heuristic_value: bool = False,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -704,8 +709,9 @@ def run_standard_board_br_vs_neg(
     state = standard_initial_state()
     base_rng = random.Random(seed)
 
-    negotiation_powers = negotiation_powers 
-    baseline_powers = baseline_powers 
+    negotiation_powers = negotiation_powers
+    baseline_powers = baseline_powers
+    value_fn = _resolve_value_fn(use_heuristic_value)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -720,6 +726,7 @@ def run_standard_board_br_vs_neg(
                 action_rollouts=action_rollouts,
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depth,
+                value_fn=value_fn,
             )
         elif power in baseline_powers:
             agents[power] = DeepMindSaveAgent(
@@ -729,6 +736,7 @@ def run_standard_board_br_vs_neg(
                 temperature=temperature,
                 k_candidates=k_candidates,
                 action_rollouts=action_rollouts,
+                value_fn=value_fn,
             )
         else:
             agents[power] = RandomAgent(
@@ -884,6 +892,7 @@ def run_standard_board_mixed_tom_demo(
     negotiation_powers: Optional[List[Power]] = None,
     tom_depths: Optional[Dict[Power, int]] = None,
     default_tom_depth: int = 1,
+    use_heuristic_value: bool = False,
     stop_on_winner: bool = True,
     visualize: bool = False,
 ) -> None:
@@ -904,6 +913,7 @@ def run_standard_board_mixed_tom_demo(
     base_rng = random.Random(seed)
     negotiation_powers = negotiation_powers or []
     tom_depths = tom_depths or {}
+    value_fn = _resolve_value_fn(use_heuristic_value)
 
     agents: Dict[Power, Agent] = {}
     for power in sorted(state.powers, key=str):
@@ -918,6 +928,7 @@ def run_standard_board_mixed_tom_demo(
                 action_rollouts=action_rollouts,
                 rss_rollouts=rss_rollouts,
                 tom_depth=tom_depths.get(power, default_tom_depth),
+                value_fn=value_fn,
             )
         else:
             agents[power] = RandomAgent(
