@@ -144,11 +144,10 @@ To set up a python3 virtual environment with the required dependencies, use the
 following commands, or simply run `run.sh`.
 
 ```shell
-cd ..
 python3 -m venv dip_env
 source dip_env/bin/activate
 pip3 install --upgrade pip
-pip3 install -r diplomacy/requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### Running a basic smoke test
@@ -158,7 +157,7 @@ required dependencies. See the next paragraph for an more detailed explanation
 of the tests we provide.
 
 ```shell
-python3 -m diplomacy.tests.network_test
+python3 -m tests.network_test
 ```
 
 ## Tests
