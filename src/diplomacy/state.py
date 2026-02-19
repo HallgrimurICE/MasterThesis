@@ -33,6 +33,11 @@ class GameState:
     pending_builds: Dict[Power, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        # If a prebuilt graph was provided, assume supply bookkeeping was also
+        # provided and skip the expensive reconstruction work.
+        if self.graph and self.graph.number_of_nodes() > 0:
+            return
+
         # Build/refresh the graph from the board definition
         self.graph = nx.Graph()  # type: ignore[assignment]
         for name, prov in self.board.items():
@@ -53,6 +58,7 @@ class GameState:
             units=dict(self.units),
             phase=self.phase,
             powers=set(self.powers),
+            graph=self.graph,
             supply_center_control=dict(self.supply_center_control),
             pending_retreats=dict(self.pending_retreats),
             retreat_forbidden={k: set(v) for k, v in self.retreat_forbidden.items()},
